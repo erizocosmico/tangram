@@ -13,6 +13,7 @@ type parser struct {
 	unresolved []*ast.Ident
 
 	tok    *token.Token
+	ctx    []*token.Token
 	errors []error
 }
 
@@ -38,6 +39,7 @@ func (p *parser) parseFile() *ast.File {
 	)
 
 	for {
+		p.resetCtx()
 		if p.is(token.EOF) {
 			break
 		}
@@ -53,7 +55,7 @@ func (p *parser) parseFile() *ast.File {
 			panic("value parsing is not implemented yet")
 
 		default:
-			panic("invalid token type for declaration")
+			p.errorExpectedOneOf(p.tok, token.Import, token.TypeDef, token.Identifier)
 		}
 	}
 
@@ -76,7 +78,7 @@ func (p *parser) parseModule() *ast.ModuleDecl {
 		exposedList.Lparen = p.expect(token.LeftParen)
 		exposedList.Idents = p.parseExposedIdents()
 		if len(exposedList.Idents) == 0 {
-			p.errorExpectedExposed(p.tok)
+			p.errorExpectedOneOf(p.tok, token.Range, token.Identifier)
 		}
 		exposedList.Rparen = p.expect(token.RightParen)
 		decl.Exposing = exposedList
@@ -101,7 +103,7 @@ func (p *parser) parseImport() *ast.ImportDecl {
 		exposedList.Lparen = p.expect(token.LeftParen)
 		exposedList.Idents = p.parseExposedIdents()
 		if len(exposedList.Idents) == 0 {
-			p.errorExpectedExposed(p.tok)
+			p.errorExpectedOneOf(p.tok, token.Range, token.Identifier)
 		}
 		exposedList.Rparen = p.expect(token.RightParen)
 		decl.Exposing = exposedList
@@ -160,7 +162,7 @@ func (p *parser) parseExposedIdent() *ast.ExposedIdent {
 		exposingList.Lparen = p.expect(token.LeftParen)
 		exposingList.Idents = p.parseExposedIdents()
 		if len(exposingList.Idents) == 0 {
-			p.errorExpectedExposed(p.tok)
+			p.errorExpectedOneOf(p.tok, token.Range, token.Identifier)
 		}
 		exposingList.Rparen = p.expect(token.RightParen)
 		ident.Exposing = exposingList
@@ -212,6 +214,14 @@ func (p *parser) next() {
 	if p.is(token.Comment) {
 		// ignore comments for now
 		p.next()
+	} else {
+		p.ctx = append(p.ctx, p.tok)
+	}
+}
+
+func (p *parser) resetCtx() {
+	if len(p.ctx) > 0 {
+		p.ctx = []*token.Token{p.ctx[len(p.ctx)-1]}
 	}
 }
 
@@ -238,17 +248,21 @@ func (p *parser) errorExpected(t *token.Token, typ token.Type) {
 		panic(bailout{})
 	}
 
-	p.errors = append(p.errors, fmt.Errorf(
-		"%s:%d:%d expecting %s, found %s instead",
-		t.Source, t.Line, t.Column,
-		typ,
-		t.Type,
-	))
+	p.errors = append(p.errors, &parseError{
+		&expectedError{
+			ctx:       p.ctx,
+			pos:       t.Position,
+			expecting: []token.Type{typ},
+		},
+	})
 }
 
-func (p *parser) errorExpectedExposed(t *token.Token) {
-	p.errors = append(p.errors, fmt.Errorf(
-		"%s:%d:%d expecting either `..` or a list of identifiers to expose",
-		t.Source, t.Line, t.Column,
-	))
+func (p *parser) errorExpectedOneOf(t *token.Token, types ...token.Type) {
+	p.errors = append(p.errors, &parseError{
+		&expectedError{
+			ctx:       p.ctx,
+			pos:       t.Position,
+			expecting: types,
+		},
+	})
 }
