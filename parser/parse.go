@@ -1,8 +1,6 @@
 package parser
 
 import (
-	"fmt"
-
 	"github.com/mvader/elm-compiler/ast"
 	"github.com/mvader/elm-compiler/scanner"
 	"github.com/mvader/elm-compiler/token"
@@ -49,6 +47,9 @@ func (p *parser) parseFile() *ast.File {
 
 		case token.Identifier:
 			panic("value parsing is not implemented yet")
+
+		case token.LeftParen:
+			panic("operator parsing is not implemented yet")
 
 		default:
 			p.errorExpectedOneOf(p.tok, token.Import, token.TypeDef, token.Identifier)
@@ -237,20 +238,16 @@ func (p *parser) is(typ token.Type) bool {
 
 func (p *parser) errorExpected(t *token.Token, typ token.Type) {
 	if t.Type == token.EOF {
-		p.errors = append(p.errors, fmt.Errorf(
-			"%s:%d:%d unexpected EOF, expecting %s",
-			t.Source, t.Line, t.Column, typ,
-		))
+		p.errors = append(p.errors, &parseError{
+			&unexpectedEOFError{
+				ctx: p.ctx,
+				pos: t.Position,
+			},
+		})
 		panic(bailout{})
 	}
 
-	p.errors = append(p.errors, &parseError{
-		&expectedError{
-			ctx:       p.ctx,
-			pos:       t.Position,
-			expecting: []token.Type{typ},
-		},
-	})
+	p.errorExpectedOneOf(t, typ)
 }
 
 func (p *parser) errorExpectedOneOf(t *token.Token, types ...token.Type) {

@@ -36,6 +36,21 @@ func (e *expectedError) Error() string {
 	)
 }
 
+type unexpectedEOFError struct {
+	ctx       []*token.Token
+	pos       *token.Position
+	expecting []token.Type
+}
+
+func (e *unexpectedEOFError) Error() string {
+	return fmt.Sprintf(
+		"\nFile: %s%s\n\nUnexpected EOF, I was expecting %s instead",
+		e.pos.Source,
+		generateErroredChunk(e.ctx, e.pos),
+		joinExpectedTypes(e.expecting),
+	)
+}
+
 func joinExpectedTypes(types []token.Type) string {
 	var buf bytes.Buffer
 	ln := len(types)
