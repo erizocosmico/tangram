@@ -120,3 +120,38 @@ const (
 	Fun
 	Op
 )
+
+type BasicLit struct {
+	Pos   *token.Position
+	Type  BasicLitType
+	Value string
+}
+
+type BasicLitType byte
+
+const (
+	Error BasicLitType = iota
+	Int
+	Float
+	String
+	Bool
+	Char
+)
+
+type InfixDecl struct {
+	InfixPos *token.Position
+	Dir      InfixDir
+	Op       *Ident
+	Priority *BasicLit
+}
+
+type InfixDir bool
+
+const (
+	Infixr InfixDir = true
+	Infixl InfixDir = false
+)
+
+func (InfixDecl) isDecl()          {}
+func (d InfixDecl) Pos() token.Pos { return d.InfixPos.Offset }
+func (d InfixDecl) End() token.Pos { return d.Op.End() }

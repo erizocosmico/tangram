@@ -20,7 +20,6 @@ func ParseFile(fileName string, source io.Reader) (f *ast.File, err error) {
 			}
 		}
 
-		s.Stop()
 		if len(p.errors) > 0 {
 			var errs []string
 			for _, e := range p.errors {

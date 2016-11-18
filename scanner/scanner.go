@@ -405,7 +405,10 @@ func lexExpr(l *Scanner) (stateFunc, error) {
 func lexOp(l *Scanner) (stateFunc, error) {
 	for {
 		r, err := l.next()
-		if err != nil {
+		if err == io.EOF {
+			l.emit(token.Op)
+			return nil, err
+		} else if err != nil {
 			return nil, err
 		}
 

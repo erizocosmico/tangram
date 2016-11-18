@@ -44,10 +44,25 @@ type unexpectedEOFError struct {
 
 func (e *unexpectedEOFError) Error() string {
 	return fmt.Sprintf(
-		"\nFile: %s%s\n\nUnexpected EOF, I was expecting %s instead",
+		"\nFile: %s%s\nUnexpected end of file, I was expecting %s instead",
 		e.pos.Source,
 		generateErroredChunk(e.ctx, e.pos),
 		joinExpectedTypes(e.expecting),
+	)
+}
+
+type msgError struct {
+	ctx []*token.Token
+	pos *token.Position
+	msg string
+}
+
+func (e *msgError) Error() string {
+	return fmt.Sprintf(
+		"\nFile: %s%s\n\n%s",
+		e.pos.Source,
+		generateErroredChunk(e.ctx, e.pos),
+		e.msg,
 	)
 }
 

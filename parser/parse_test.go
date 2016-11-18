@@ -1,9 +1,11 @@
 package parser
 
 import (
+	"strconv"
 	"strings"
 	"testing"
 
+	"github.com/mvader/elm-compiler/ast"
 	"github.com/mvader/elm-compiler/scanner"
 	"github.com/stretchr/testify/require"
 )
@@ -37,18 +39,7 @@ func TestParseModule(t *testing.T) {
 
 	for _, c := range cases {
 		func() {
-			defer func() {
-				if r := recover(); r != nil {
-					switch r.(type) {
-					case bailout:
-						if !c.eof {
-							require.FailNow("unexpected bailout", c.input)
-						}
-					default:
-						panic(r)
-					}
-				}
-			}()
+			defer assertEOF(t, c.input, c.eof)
 
 			p := stringParser(c.input)
 			decl := p.parseModule()
@@ -109,18 +100,7 @@ func TestParseImport(t *testing.T) {
 
 	for _, c := range cases {
 		func() {
-			defer func() {
-				if r := recover(); r != nil {
-					switch r.(type) {
-					case bailout:
-						if !c.eof {
-							require.FailNow("unexpected bailout", c.input)
-						}
-					default:
-						panic(r)
-					}
-				}
-			}()
+			defer assertEOF(t, c.input, c.eof)
 
 			p := stringParser(c.input)
 			decl := p.parseImport()
@@ -150,6 +130,59 @@ func TestParseImport(t *testing.T) {
 				require.NotEqual(0, len(p.errors), c.input)
 			}
 		}()
+	}
+}
+
+func TestParseInfixDecl(t *testing.T) {
+	cases := []struct {
+		input    string
+		dir      ast.InfixDir
+		op       string
+		priority int
+		ok       bool
+		eof      bool
+	}{
+		{"infixr 4 ?", ast.Infixr, "?", 4, true, false},
+		{"infixl 4 ?", ast.Infixl, "?", 4, true, false},
+		{"infixl 4 foo", ast.Infixl, "", 0, false, false},
+		{"infixl \"a\" ?", ast.Infixl, "", 0, false, false},
+		{"infixl ? 5", ast.Infixl, "", 0, false, false},
+		{"infixl ?", ast.Infixl, "", 0, false, true},
+		{"infixl 0 ?", ast.Infixl, "", 0, false, false},
+		{"infixl 10 ?", ast.Infixl, "", 0, false, false},
+		{"infixl 20 ?", ast.Infixl, "", 0, false, false},
+	}
+
+	require := require.New(t)
+	for _, c := range cases {
+		func() {
+			defer assertEOF(t, c.input, c.eof)
+
+			p := stringParser(c.input)
+			decl := p.parseInfixDecl().(*ast.InfixDecl)
+			if c.ok {
+				require.Equal(c.dir, decl.Dir, c.input)
+				require.Equal(c.op, decl.Op.Name, c.input)
+				p, err := strconv.Atoi(decl.Priority.Value)
+				require.Nil(err, c.input)
+				require.Equal(c.priority, p, c.input)
+			} else {
+				require.NotEqual(0, len(p.errors), c.input)
+			}
+		}()
+	}
+}
+
+func assertEOF(t *testing.T, input string, eof bool) {
+	if r := recover(); r != nil {
+		switch r.(type) {
+		case bailout:
+			if !eof {
+				require.FailNow(t, "unexpected bailout", input)
+			}
+		default:
+			panic(r)
+		}
 	}
 }
 

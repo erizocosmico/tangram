@@ -1,6 +1,8 @@
 package parser
 
 import (
+	"strconv"
+
 	"github.com/mvader/elm-compiler/ast"
 	"github.com/mvader/elm-compiler/scanner"
 	"github.com/mvader/elm-compiler/token"
@@ -45,14 +47,15 @@ func (p *parser) parseFile() *ast.File {
 		case token.TypeDef:
 			panic("type parsing is not implemented yet")
 
-		case token.Identifier:
-			panic("value parsing is not implemented yet")
+		case token.Infixl, token.Infixr:
+			decls = append(decls, p.parseInfixDecl())
 
-		case token.LeftParen:
-			panic("operator parsing is not implemented yet")
+		case token.Identifier, token.LeftParen:
+			decls = append(decls, p.parseDefinition())
 
 		default:
 			p.errorExpectedOneOf(p.tok, token.Import, token.TypeDef, token.Identifier)
+			panic(bailout{})
 		}
 	}
 
@@ -206,6 +209,61 @@ func (p *parser) parseOp() *ast.Ident {
 	return &ast.Ident{NamePos: pos, Name: name, Obj: obj}
 }
 
+func (p *parser) parseLiteral() *ast.BasicLit {
+	var typ ast.BasicLitType
+	switch p.tok.Type {
+	case token.True, token.False:
+		typ = ast.Bool
+	case token.Int:
+		typ = ast.Int
+	case token.Float:
+		typ = ast.Float
+	case token.String:
+		typ = ast.String
+	case token.Char:
+		typ = ast.Char
+	}
+
+	t := p.tok
+	p.next()
+	return &ast.BasicLit{
+		Type:  typ,
+		Pos:   t.Position,
+		Value: t.Value,
+	}
+}
+
+func (p *parser) parseInfixDecl() ast.Decl {
+	dir := ast.Infixr
+	if p.is(token.Infixl) {
+		dir = ast.Infixl
+	}
+
+	pos := p.tok.Position
+	p.expectOneOf(token.Infixl, token.Infixr)
+	if !p.is(token.Int) {
+		p.errorExpected(p.tok, token.Int)
+	}
+
+	priority := p.parseLiteral()
+	n, _ := strconv.Atoi(priority.Value)
+	if n < 1 || n > 9 {
+		p.errorMessage(priority.Pos, "Operator priority must be a number between 1 and 9, both included.")
+	}
+
+	op := p.parseOp()
+	return &ast.InfixDecl{
+		InfixPos: pos,
+		Dir:      dir,
+		Priority: priority,
+		Op:       op,
+	}
+}
+
+func (p *parser) parseDefinition() ast.Decl {
+	panic(bailout{})
+}
+
 func (p *parser) next() {
 	p.tok = p.scanner.Next()
 	if p.is(token.Comment) {
@@ -232,6 +290,23 @@ func (p *parser) expect(typ token.Type) token.Pos {
 	return pos.Offset
 }
 
+func (p *parser) expectOneOf(types ...token.Type) token.Pos {
+	pos := p.tok.Position
+	var found bool
+	for _, t := range types {
+		if p.tok.Type == t {
+			found = true
+		}
+	}
+
+	if !found {
+		p.errorExpectedOneOf(p.tok, types...)
+	}
+
+	p.next()
+	return pos.Offset
+}
+
 func (p *parser) is(typ token.Type) bool {
 	return p.tok.Type == typ
 }
@@ -240,8 +315,9 @@ func (p *parser) errorExpected(t *token.Token, typ token.Type) {
 	if t.Type == token.EOF {
 		p.errors = append(p.errors, &parseError{
 			&unexpectedEOFError{
-				ctx: p.ctx,
-				pos: t.Position,
+				ctx:       p.ctx,
+				pos:       t.Position,
+				expecting: []token.Type{typ},
 			},
 		})
 		panic(bailout{})
@@ -256,6 +332,16 @@ func (p *parser) errorExpectedOneOf(t *token.Token, types ...token.Type) {
 			ctx:       p.ctx,
 			pos:       t.Position,
 			expecting: types,
+		},
+	})
+}
+
+func (p *parser) errorMessage(pos *token.Position, msg string) {
+	p.errors = append(p.errors, &parseError{
+		&msgError{
+			ctx: p.ctx,
+			pos: pos,
+			msg: msg,
 		},
 	})
 }
