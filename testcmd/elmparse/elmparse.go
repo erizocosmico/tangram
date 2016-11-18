@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"reflect"
 
 	"github.com/fatih/color"
 	"github.com/mvader/elm-compiler/ast"
@@ -30,6 +31,10 @@ func main() {
 	printModule(file.Module)
 	for _, i := range file.Imports {
 		printImport(i)
+	}
+
+	for _, d := range file.Decls {
+		printDecl(d)
 	}
 }
 
@@ -75,6 +80,30 @@ func printIndent(offset int) {
 	for i := 0; i < offset; i++ {
 		fmt.Print(".   ")
 	}
+}
+
+func printDecl(decl ast.Decl) {
+	switch d := decl.(type) {
+	case *ast.InfixDecl:
+		printInfixDecl(d)
+	default:
+		fmt.Println("Not implemented decl printer of type:", reflect.TypeOf(d))
+	}
+}
+
+func printInfixDecl(decl *ast.InfixDecl) {
+	color.Yellow("Infix:")
+	printIndent(1)
+	fmt.Print("- Associativity: ")
+	if decl.Dir == ast.Infixr {
+		fmt.Println("right")
+	} else {
+		fmt.Println("left")
+	}
+	printIndent(1)
+	fmt.Println("- Operator:", decl.Op.Name)
+	printIndent(1)
+	fmt.Println("- Priority:", decl.Priority.Value)
 }
 
 const helpText = `Display a parsed AST
