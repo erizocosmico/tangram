@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mvader/elm-compiler/lexer"
+	"github.com/mvader/elm-compiler/scanner"
 	"github.com/stretchr/testify/require"
 )
 
@@ -154,9 +154,9 @@ func TestParseImport(t *testing.T) {
 }
 
 func stringParser(str string) *parser {
-	lexer := lexer.New("test", strings.NewReader(str))
-	go lexer.Run()
+	scanner := scanner.New("test", strings.NewReader(str))
+	go scanner.Run()
 	var p = new(parser)
-	p.init("test", lexer)
+	p.init("test", scanner)
 	return p
 }

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/mvader/elm-compiler/lexer"
+	"github.com/mvader/elm-compiler/scanner"
 	"github.com/mvader/elm-compiler/token"
 )
 
@@ -19,11 +19,11 @@ func main() {
 		os.Exit(0)
 	}
 
-	lexer := lexer.New("stdin", os.Stdin)
-	go lexer.Run()
+	scanner := scanner.New("stdin", os.Stdin)
+	go scanner.Run()
 
 	for {
-		t := lexer.Next()
+		t := scanner.Next()
 		if t == nil || t.Type == token.EOF {
 			break
 		}
@@ -40,9 +40,9 @@ func main() {
 
 const helpText = `Display a list of tokens with their properties
 
-usage: elmlex < /path/to/file.elm
+usage: elmscan < /path/to/file.elm
 
-To enter lines interactively use: cat | elmlex`
+To enter lines interactively use: cat | elmscan`
 
 func printUsage() {
 	fmt.Println(helpText)

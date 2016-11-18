@@ -1,4 +1,4 @@
-package lexer
+package scanner
 
 import (
 	"bufio"
@@ -11,7 +11,7 @@ import (
 	"github.com/mvader/elm-compiler/token"
 )
 
-type stateFunc func(*Lexer) (stateFunc, error)
+type stateFunc func(*Scanner) (stateFunc, error)
 
 const (
 	eof     = -1
@@ -40,8 +40,8 @@ const (
 	hexDigits = "0123456789abcdefABCDEF"
 )
 
-// Lexer is in charge of extracting tokens from a source.
-type Lexer struct {
+// Scanner is in charge of extracting tokens from a source.
+type Scanner struct {
 	mut     sync.RWMutex
 	source  string
 	reader  *bufio.Reader
@@ -55,9 +55,9 @@ type Lexer struct {
 	word    []rune
 }
 
-// New creates a new lexer for the input.
-func New(source string, input io.Reader) *Lexer {
-	return &Lexer{
+// New creates a new scanner for the input.
+func New(source string, input io.Reader) *Scanner {
+	return &Scanner{
 		source: source,
 		reader: bufio.NewReader(input),
 		state:  lexExpr,
@@ -67,7 +67,7 @@ func New(source string, input io.Reader) *Lexer {
 }
 
 // next returns the next rune in the input or EOF if none left.
-func (l *Lexer) next() (r rune, err error) {
+func (l *Scanner) next() (r rune, err error) {
 	r, l.width, err = l.reader.ReadRune()
 	l.pos += l.width
 	l.linePos++
@@ -78,7 +78,7 @@ func (l *Lexer) next() (r rune, err error) {
 }
 
 // backup steps back to the latest consumed rune.
-func (l *Lexer) backup() error {
+func (l *Scanner) backup() error {
 	l.pos -= l.width
 	l.linePos--
 
@@ -92,7 +92,7 @@ func (l *Lexer) backup() error {
 }
 
 // peek returns the next rune without actually consuming it.
-func (l *Lexer) peek() (r rune, err error) {
+func (l *Scanner) peek() (r rune, err error) {
 	r, err = l.next()
 	if err != nil {
 		return
@@ -106,12 +106,12 @@ func (l *Lexer) peek() (r rune, err error) {
 	return r, nil
 }
 
-func (l *Lexer) peekWord() string {
+func (l *Scanner) peekWord() string {
 	return string(l.word)
 }
 
 // emit sends the token to the consumer.
-func (l *Lexer) emit(t token.Type) {
+func (l *Scanner) emit(t token.Type) {
 	word := l.peekWord()
 	l.word = nil
 	l.tokens <- token.New(
@@ -126,13 +126,13 @@ func (l *Lexer) emit(t token.Type) {
 }
 
 // ignore skips over the pending input before this point.
-func (l *Lexer) ignore() {
+func (l *Scanner) ignore() {
 	l.start = l.pos
 	l.word = nil
 }
 
 // accept consumes a rune if it's from the valid set and reports if it was accepted or not.
-func (l *Lexer) accept(valid string) (bool, error) {
+func (l *Scanner) accept(valid string) (bool, error) {
 	r, err := l.next()
 	if err != nil {
 		return false, err
@@ -147,7 +147,7 @@ func (l *Lexer) accept(valid string) (bool, error) {
 }
 
 // acceptRun consumes a run of runes from the valid set given.
-func (l *Lexer) acceptRun(valid string) error {
+func (l *Scanner) acceptRun(valid string) error {
 	for {
 		ok, err := l.accept(valid)
 		if err != nil {
@@ -160,8 +160,8 @@ func (l *Lexer) acceptRun(valid string) error {
 	}
 }
 
-// Run runs the state machine for the lexer in parallel.
-func (l *Lexer) Run() {
+// Run runs the state machine for the scanner in parallel.
+func (l *Scanner) Run() {
 	for {
 		l.mut.Lock()
 		var err error
@@ -183,21 +183,21 @@ func (l *Lexer) Run() {
 	close(l.tokens)
 }
 
-// Stop stops the lexer.
-func (l *Lexer) Stop() {
+// Stop stops the scanner.
+func (l *Scanner) Stop() {
 	l.mut.Lock()
 	defer l.mut.Unlock()
 	l.state = nil
 }
 
 // newLine increments the line and sets the new line start
-func (l *Lexer) newLine() {
+func (l *Scanner) newLine() {
 	l.line++
 	l.linePos = 0
 }
 
 // errorf emits an error token.
-func (l *Lexer) errorf(format string, args ...interface{}) stateFunc {
+func (l *Scanner) errorf(format string, args ...interface{}) stateFunc {
 	l.backup()
 	l.ignore()
 	l.next()
@@ -214,7 +214,7 @@ func (l *Lexer) errorf(format string, args ...interface{}) stateFunc {
 
 // scanNumber scans a number and returns if the termination is valid
 // can detect integers, floats and integer ranges
-func (l *Lexer) scanNumber() (bool, token.Type, error) {
+func (l *Scanner) scanNumber() (bool, token.Type, error) {
 	var t = token.Int
 	if err := l.acceptRun(numDigits); err != nil {
 		return false, t, err
@@ -259,49 +259,49 @@ func (l *Lexer) scanNumber() (bool, token.Type, error) {
 	return true, t, nil
 }
 
-// Next returns the next Token available in the lexer.
-func (l *Lexer) Next() *token.Token {
+// Next returns the next Token available in the scanner.
+func (l *Scanner) Next() *token.Token {
 	return <-l.tokens
 }
 
 // lexLeftParen scans the left paren, which is known to be present.
-func lexLeftParen(l *Lexer) (stateFunc, error) {
+func lexLeftParen(l *Scanner) (stateFunc, error) {
 	l.emit(token.LeftParen)
 	return lexExpr, nil
 }
 
 // lexRightParen scans the right paren, which is known to be present.
-func lexRightParen(l *Lexer) (stateFunc, error) {
+func lexRightParen(l *Scanner) (stateFunc, error) {
 	l.emit(token.RightParen)
 	return lexExpr, nil
 }
 
 // lexLeftBracket scans the left bracket, which is known to be present.
-func lexLeftBracket(l *Lexer) (stateFunc, error) {
+func lexLeftBracket(l *Scanner) (stateFunc, error) {
 	l.emit(token.LeftBracket)
 	return lexExpr, nil
 }
 
 // lexRightBracket scans the right bracket, which is known to be present.
-func lexRightBracket(l *Lexer) (stateFunc, error) {
+func lexRightBracket(l *Scanner) (stateFunc, error) {
 	l.emit(token.RightBracket)
 	return lexExpr, nil
 }
 
 // lexLeftBrace scans the left brace, which is known to be present.
-func lexLeftBrace(l *Lexer) (stateFunc, error) {
+func lexLeftBrace(l *Scanner) (stateFunc, error) {
 	l.emit(token.LeftBrace)
 	return lexExpr, nil
 }
 
 // lexRightBrace scans the right brace, which is known to be present.
-func lexRightBrace(l *Lexer) (stateFunc, error) {
+func lexRightBrace(l *Scanner) (stateFunc, error) {
 	l.emit(token.RightBrace)
 	return lexExpr, nil
 }
 
 // lexExpr scans the elements inside an expression.
-func lexExpr(l *Lexer) (stateFunc, error) {
+func lexExpr(l *Scanner) (stateFunc, error) {
 	r, err := l.next()
 	if err != nil {
 		return nil, err
@@ -404,7 +404,7 @@ func lexExpr(l *Lexer) (stateFunc, error) {
 	}
 }
 
-func lexInfixOp(l *Lexer) (stateFunc, error) {
+func lexInfixOp(l *Scanner) (stateFunc, error) {
 	r, err := l.next()
 	if err != nil {
 		return nil, err
@@ -432,7 +432,7 @@ func lexInfixOp(l *Lexer) (stateFunc, error) {
 	return lexExpr, nil
 }
 
-func lexOp(l *Lexer) (stateFunc, error) {
+func lexOp(l *Scanner) (stateFunc, error) {
 	for {
 		r, err := l.next()
 		if err != nil {
@@ -447,7 +447,7 @@ func lexOp(l *Lexer) (stateFunc, error) {
 	}
 }
 
-func lexColon(l *Lexer) (stateFunc, error) {
+func lexColon(l *Scanner) (stateFunc, error) {
 	r, err := l.peek()
 	if err != nil {
 		return nil, err
@@ -461,7 +461,7 @@ func lexColon(l *Lexer) (stateFunc, error) {
 	return lexExpr, nil
 }
 
-func lexEq(l *Lexer) (stateFunc, error) {
+func lexEq(l *Scanner) (stateFunc, error) {
 	r, err := l.peek()
 	if err != nil {
 		return nil, err
@@ -476,7 +476,7 @@ func lexEq(l *Lexer) (stateFunc, error) {
 }
 
 // lexChar scans for a character.
-func lexChar(l *Lexer) (stateFunc, error) {
+func lexChar(l *Scanner) (stateFunc, error) {
 	r, err := l.next()
 	if err != nil {
 		return nil, err
@@ -505,7 +505,7 @@ func lexChar(l *Lexer) (stateFunc, error) {
 }
 
 // lexEOL scans all end of lines.
-func lexEOL(l *Lexer) (stateFunc, error) {
+func lexEOL(l *Scanner) (stateFunc, error) {
 	l.newLine()
 	for {
 		r, err := l.next()
@@ -526,7 +526,7 @@ func lexEOL(l *Lexer) (stateFunc, error) {
 }
 
 // lexSpaces scanns a run of space chars.
-func lexSpaces(l *Lexer) (stateFunc, error) {
+func lexSpaces(l *Scanner) (stateFunc, error) {
 	for {
 		r, err := l.next()
 		if err != nil {
@@ -544,7 +544,7 @@ func lexSpaces(l *Lexer) (stateFunc, error) {
 }
 
 // lexNumbers scans a number int or float
-func lexNumber(l *Lexer) (stateFunc, error) {
+func lexNumber(l *Scanner) (stateFunc, error) {
 	ok, kind, err := l.scanNumber()
 	if err == io.EOF {
 		l.emit(kind)
@@ -562,7 +562,7 @@ func lexNumber(l *Lexer) (stateFunc, error) {
 }
 
 // lexComment scans a comment. The '--' delimiter has already been scanned.
-func lexComment(l *Lexer) (stateFunc, error) {
+func lexComment(l *Scanner) (stateFunc, error) {
 	for {
 		r, err := l.next()
 		if err != nil {
@@ -577,7 +577,7 @@ func lexComment(l *Lexer) (stateFunc, error) {
 	}
 }
 
-func lexMultiLineComment(l *Lexer) (stateFunc, error) {
+func lexMultiLineComment(l *Scanner) (stateFunc, error) {
 	for {
 		r, err := l.next()
 		if err != nil {
@@ -602,7 +602,7 @@ func lexMultiLineComment(l *Lexer) (stateFunc, error) {
 
 // lexInsideQuote scans the next rune and tells if there is an error
 // or the scan needs to stop
-func lexInsideQuote(l *Lexer) (bool, error) {
+func lexInsideQuote(l *Scanner) (bool, error) {
 	r, err := l.next()
 	if err != nil {
 		return false, err
@@ -628,7 +628,7 @@ func lexInsideQuote(l *Lexer) (bool, error) {
 }
 
 // lexQuote scans a quoted string. The first quote has already been scanned.
-func lexQuote(l *Lexer) (stateFunc, error) {
+func lexQuote(l *Scanner) (stateFunc, error) {
 	for {
 		stop, err := lexInsideQuote(l)
 		if err != nil {
@@ -645,7 +645,7 @@ func lexQuote(l *Lexer) (stateFunc, error) {
 }
 
 // lexIdentifier scans an identifier. First character is already scanned.
-func lexIdentifier(l *Lexer) (stateFunc, error) {
+func lexIdentifier(l *Scanner) (stateFunc, error) {
 	for {
 		r, err := l.next()
 		if err != nil && err != io.EOF {

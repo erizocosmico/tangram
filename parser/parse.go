@@ -4,11 +4,12 @@ import (
 	"fmt"
 
 	"github.com/mvader/elm-compiler/ast"
+	"github.com/mvader/elm-compiler/scanner"
 	"github.com/mvader/elm-compiler/token"
 )
 
 type parser struct {
-	scanner    scanner
+	scanner    *scanner.Scanner
 	fileName   string
 	unresolved []*ast.Ident
 
@@ -19,12 +20,7 @@ type parser struct {
 
 type bailout struct{}
 
-type scanner interface {
-	Next() *token.Token
-	Stop()
-}
-
-func (p *parser) init(fileName string, s scanner) {
+func (p *parser) init(fileName string, s *scanner.Scanner) {
 	p.scanner = s
 	p.fileName = fileName
 

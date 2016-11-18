@@ -1,4 +1,4 @@
-package lexer
+package scanner
 
 import (
 	"strings"
@@ -6,34 +6,34 @@ import (
 	"testing"
 
 	"github.com/mvader/elm-compiler/token"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestIsAllowedInIdentifier(t *testing.T) {
 	allowed := "abc135fdcv_'"
 	notAllowed := ":.;,{}[]`|#%\\-+-?!&=/<>^$"
 	for _, r := range allowed {
-		assert.Equal(t, isAllowedInIdentifier(r), true)
+		require.Equal(t, isAllowedInIdentifier(r), true)
 	}
 
 	for _, r := range notAllowed {
-		assert.Equal(t, isAllowedInIdentifier(r), false)
+		require.Equal(t, isAllowedInIdentifier(r), false)
 	}
 }
 
 func TestLexNumber(t *testing.T) {
-	assert := assert.New(t)
+	require := require.New(t)
 
-	testLexState(t, "24 ", lexNumber, func(l *Lexer, tokens []*token.Token) {
-		assert.Equal(1, len(tokens))
-		assert.Equal(token.Int, tokens[0].Type)
-		assert.Equal("24", tokens[0].Value)
+	testLexState(t, "24 ", lexNumber, func(l *Scanner, tokens []*token.Token) {
+		require.Equal(1, len(tokens))
+		require.Equal(token.Int, tokens[0].Type)
+		require.Equal("24", tokens[0].Value)
 	})
 
-	testLexState(t, "24.56 ", lexNumber, func(l *Lexer, tokens []*token.Token) {
-		assert.Equal(1, len(tokens))
-		assert.Equal(token.Float, tokens[0].Type)
-		assert.Equal("24.56", tokens[0].Value)
+	testLexState(t, "24.56 ", lexNumber, func(l *Scanner, tokens []*token.Token) {
+		require.Equal(1, len(tokens))
+		require.Equal(token.Float, tokens[0].Type)
+		require.Equal("24.56", tokens[0].Value)
 	})
 }
 
@@ -327,16 +327,16 @@ func testLex(t *testing.T, input string, expected []expectedToken) {
 		tokens = append(tokens, tk)
 	}
 
-	assert.Equal(t, len(expected), len(tokens))
+	require.Equal(t, len(expected), len(tokens))
 	for i := range tokens {
-		assert.Equal(t, expected[i].typ, tokens[i].Type)
+		require.Equal(t, expected[i].typ, tokens[i].Type)
 		if tokens[i].Type != token.Error {
-			assert.Equal(t, expected[i].value, tokens[i].Value)
+			require.Equal(t, expected[i].value, tokens[i].Value)
 		}
 	}
 }
 
-func testLexState(t *testing.T, input string, fn stateFunc, testFn func(*Lexer, []*token.Token)) {
+func testLexState(t *testing.T, input string, fn stateFunc, testFn func(*Scanner, []*token.Token)) {
 	l := New("test", strings.NewReader(input))
 	var tokens []*token.Token
 

@@ -6,11 +6,13 @@ import (
 	"strings"
 
 	"github.com/mvader/elm-compiler/ast"
-	"github.com/mvader/elm-compiler/lexer"
+	"github.com/mvader/elm-compiler/scanner"
 )
 
 func ParseFile(fileName string, source io.Reader) (f *ast.File, err error) {
 	var p parser
+	s := scanner.New(fileName, source)
+
 	defer func() {
 		if r := recover(); r != nil {
 			if _, ok := r.(bailout); !ok {
@@ -18,6 +20,7 @@ func ParseFile(fileName string, source io.Reader) (f *ast.File, err error) {
 			}
 		}
 
+		s.Stop()
 		if len(p.errors) > 0 {
 			var errs []string
 			for _, e := range p.errors {
@@ -27,10 +30,8 @@ func ParseFile(fileName string, source io.Reader) (f *ast.File, err error) {
 		}
 	}()
 
-	l := lexer.New(fileName, source)
-	go l.Run()
-
-	p.init(fileName, l)
+	go s.Run()
+	p.init(fileName, s)
 	f = p.parseFile()
 	return
 }
