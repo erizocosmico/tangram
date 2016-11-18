@@ -10,8 +10,8 @@ import (
 )
 
 func TestIsAllowedInIdentifier(t *testing.T) {
-	allowed := "abc135fdcv_'"
-	notAllowed := ":.;,{}[]`|#%\\-+-?!&=/<>^$"
+	allowed := "abc135fdcv_"
+	notAllowed := ":.;,{}[]`|#%\\-+-?!&=/<>'^$"
 	for _, r := range allowed {
 		require.Equal(t, isAllowedInIdentifier(r), true)
 	}
@@ -216,8 +216,7 @@ func TestInfixOp(t *testing.T) {
 		{"theMax", token.Identifier},
 		{"=", token.Assign},
 		{"3", token.Int},
-		{"`max`", token.InfixOp},
-		{"5", token.Int},
+		{"invalid syntax: \"`\"", token.Error},
 	})
 }
 

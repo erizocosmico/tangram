@@ -27,7 +27,7 @@ const (
 	pipe         = '|'
 	backslash    = '\\'
 	singleQuote  = '\''
-	backQuote    = '`'
+	backtick     = '`'
 	underscore   = '_'
 	eq           = '='
 	colon        = ':'
@@ -342,8 +342,6 @@ func lexExpr(l *Scanner) (stateFunc, error) {
 		return lexRightBrace, nil
 	case r == singleQuote:
 		return lexChar, nil
-	case r == backQuote:
-		return lexInfixOp, nil
 	case r == colon:
 		return lexColon, nil
 	case r == eq:
@@ -360,7 +358,7 @@ func lexExpr(l *Scanner) (stateFunc, error) {
 			return nil, err
 		}
 
-		if !isAllowedInOp(nr) {
+		if !isSymbol(nr) {
 			if err := l.backup(); err != nil {
 				return nil, err
 			}
@@ -395,41 +393,13 @@ func lexExpr(l *Scanner) (stateFunc, error) {
 		}
 
 		return lexOp, nil
-	case isAllowedInOp(r):
+	case isSymbol(r):
 		return lexOp, nil
 	case isAllowedInIdentifier(r) && !isNumeric(r):
 		return lexIdentifier, nil
 	default:
 		return l.errorf("invalid syntax: %q", l.peekWord()), nil
 	}
-}
-
-func lexInfixOp(l *Scanner) (stateFunc, error) {
-	r, err := l.next()
-	if err != nil {
-		return nil, err
-	}
-
-	if !unicode.IsLetter(r) {
-		return l.errorf("invalid start character for identifier: %c", r), nil
-	}
-
-	for {
-		r, err := l.next()
-		if err != nil && err != io.EOF {
-			return nil, err
-		}
-
-		if !isAllowedInIdentifier(r) {
-			if r != backQuote {
-				return l.errorf("invalid infix operator: %q", l.peekWord()), nil
-			}
-			break
-		}
-	}
-
-	l.emit(token.InfixOp)
-	return lexExpr, nil
 }
 
 func lexOp(l *Scanner) (stateFunc, error) {
@@ -439,7 +409,7 @@ func lexOp(l *Scanner) (stateFunc, error) {
 			return nil, err
 		}
 
-		if !isAllowedInOp(r) {
+		if !isSymbol(r) {
 			l.backup()
 			l.emit(token.Op)
 			return lexExpr, nil
@@ -453,7 +423,7 @@ func lexColon(l *Scanner) (stateFunc, error) {
 		return nil, err
 	}
 
-	if isAllowedInOp(r) {
+	if isSymbol(r) {
 		return lexOp, nil
 	}
 
@@ -467,7 +437,7 @@ func lexEq(l *Scanner) (stateFunc, error) {
 		return nil, err
 	}
 
-	if isAllowedInOp(r) {
+	if isSymbol(r) {
 		return lexOp, nil
 	}
 
@@ -671,7 +641,7 @@ func lexIdentifier(l *Scanner) (stateFunc, error) {
 
 // isSpace reports if the rune is a space or a tab.
 func isSpace(r rune) bool {
-	return r == ' ' || r == '\t'
+	return unicode.IsSpace(r) && !isEOL(r)
 }
 
 // isEOL reports if the rune is an end of line character.
@@ -681,12 +651,12 @@ func isEOL(r rune) bool {
 
 // isNumeric reports if the rune is a number.
 func isNumeric(r rune) bool {
-	return r >= '0' && r <= '9'
+	return unicode.IsDigit(r)
 }
 
 // isAllowedInIdentifier reports if the rune is allowed in an identifier.
 func isAllowedInIdentifier(r rune) bool {
-	return isAlphanumeric(r) || r == underscore || r == singleQuote
+	return isAlphanumeric(r) || r == underscore
 }
 
 // isAlphanumeric reports if the rune is a letter or a digit
@@ -694,8 +664,8 @@ func isAlphanumeric(r rune) bool {
 	return unicode.IsLetter(r) || unicode.IsDigit(r)
 }
 
-func isAllowedInOp(r rune) bool {
-	return !isAlphanumeric(r) && !unicode.IsSpace(r) && strings.IndexRune("[]{}()`\"|,", r) < 0
+func isSymbol(r rune) bool {
+	return r != backtick && (unicode.IsSymbol(r) || strings.IndexRune("+-/*=.$<>:&|^?%#@~!", r) >= 0)
 }
 
 var keywords = map[string]token.Type{
