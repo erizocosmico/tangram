@@ -96,6 +96,7 @@ const (
 	Else
 	Of
 	Case
+	Infix
 	Infixl
 	Infixr
 	Let

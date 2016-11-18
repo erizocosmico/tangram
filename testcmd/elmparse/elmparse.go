@@ -95,10 +95,13 @@ func printInfixDecl(decl *ast.InfixDecl) {
 	color.Yellow("Infix:")
 	printIndent(1)
 	fmt.Print("- Associativity: ")
-	if decl.Dir == ast.Infixr {
-		fmt.Println("right")
-	} else {
+	switch decl.Assoc {
+	case ast.LeftAssoc:
 		fmt.Println("left")
+	case ast.RightAssoc:
+		fmt.Println("right")
+	case ast.NonAssoc:
+		fmt.Println("non-assoc")
 	}
 	printIndent(1)
 	fmt.Println("- Operator:", decl.Op.Name)

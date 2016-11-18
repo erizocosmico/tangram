@@ -680,6 +680,7 @@ var keywords = map[string]token.Type{
 	"else":     token.Else,
 	"of":       token.Of,
 	"case":     token.Case,
+	"infix":    token.Infix,
 	"infixl":   token.Infixl,
 	"infixr":   token.Infixr,
 	"let":      token.Let,

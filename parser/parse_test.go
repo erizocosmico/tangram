@@ -136,21 +136,23 @@ func TestParseImport(t *testing.T) {
 func TestParseInfixDecl(t *testing.T) {
 	cases := []struct {
 		input    string
-		dir      ast.InfixDir
+		assoc    ast.Associativity
 		op       string
 		priority int
 		ok       bool
 		eof      bool
 	}{
-		{"infixr 4 ?", ast.Infixr, "?", 4, true, false},
-		{"infixl 4 ?", ast.Infixl, "?", 4, true, false},
-		{"infixl 4 foo", ast.Infixl, "", 0, false, false},
-		{"infixl \"a\" ?", ast.Infixl, "", 0, false, false},
-		{"infixl ? 5", ast.Infixl, "", 0, false, false},
-		{"infixl ?", ast.Infixl, "", 0, false, true},
-		{"infixl 0 ?", ast.Infixl, "", 0, false, false},
-		{"infixl 10 ?", ast.Infixl, "", 0, false, false},
-		{"infixl 20 ?", ast.Infixl, "", 0, false, false},
+		{"infixr 4 ?", ast.RightAssoc, "?", 4, true, false},
+		{"infixl 4 ?", ast.LeftAssoc, "?", 4, true, false},
+		{"infix 4 ?", ast.NonAssoc, "?", 4, true, false},
+		{"infixl 0 ?", ast.LeftAssoc, "?", 0, true, false},
+		{"infixl 4 foo", ast.LeftAssoc, "", 0, false, false},
+		{"infixl \"a\" ?", ast.LeftAssoc, "", 0, false, false},
+		{"infixl ? 5", ast.LeftAssoc, "", 0, false, false},
+		{"infixl ?", ast.LeftAssoc, "", 0, false, true},
+		{"infixl -1 ?", ast.LeftAssoc, "", 0, false, false},
+		{"infixl 10 ?", ast.LeftAssoc, "", 0, false, false},
+		{"infixl 20 ?", ast.LeftAssoc, "", 0, false, false},
 	}
 
 	require := require.New(t)
@@ -161,7 +163,7 @@ func TestParseInfixDecl(t *testing.T) {
 			p := stringParser(c.input)
 			decl := p.parseInfixDecl().(*ast.InfixDecl)
 			if c.ok {
-				require.Equal(c.dir, decl.Dir, c.input)
+				require.Equal(c.assoc, decl.Assoc, c.input)
 				require.Equal(c.op, decl.Op.Name, c.input)
 				p, err := strconv.Atoi(decl.Priority.Value)
 				require.Nil(err, c.input)

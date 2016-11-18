@@ -45,13 +45,15 @@ func (p *parser) parseFile() *ast.File {
 			imports = append(imports, p.parseImport())
 
 		case token.TypeDef:
-			panic("type parsing is not implemented yet")
+			p.errorMessage(p.tok.Position, "Type declarations are not implemented yet.")
+			panic(bailout{})
 
-		case token.Infixl, token.Infixr:
+		case token.Infixl, token.Infixr, token.Infix:
 			decls = append(decls, p.parseInfixDecl())
 
 		case token.Identifier, token.LeftParen:
-			decls = append(decls, p.parseDefinition())
+			p.errorMessage(p.tok.Position, "Declarations are not implemented yet.")
+			panic(bailout{})
 
 		default:
 			p.errorExpectedOneOf(p.tok, token.Import, token.TypeDef, token.Identifier)
@@ -234,34 +236,31 @@ func (p *parser) parseLiteral() *ast.BasicLit {
 }
 
 func (p *parser) parseInfixDecl() ast.Decl {
-	dir := ast.Infixr
+	var assoc ast.Associativity
 	if p.is(token.Infixl) {
-		dir = ast.Infixl
+		assoc = ast.LeftAssoc
+	} else if p.is(token.Infixr) {
+		assoc = ast.RightAssoc
 	}
 
-	pos := p.tok.Position
-	p.expectOneOf(token.Infixl, token.Infixr)
+	pos := p.expectOneOf(token.Infixl, token.Infixr, token.Infix)
 	if !p.is(token.Int) {
 		p.errorExpected(p.tok, token.Int)
 	}
 
 	priority := p.parseLiteral()
 	n, _ := strconv.Atoi(priority.Value)
-	if n < 1 || n > 9 {
-		p.errorMessage(priority.Pos, "Operator priority must be a number between 1 and 9, both included.")
+	if n < 0 || n > 9 {
+		p.errorMessage(priority.Pos, "Operator priority must be a number between 0 and 9, both included.")
 	}
 
 	op := p.parseOp()
 	return &ast.InfixDecl{
 		InfixPos: pos,
-		Dir:      dir,
+		Assoc:    assoc,
 		Priority: priority,
 		Op:       op,
 	}
-}
-
-func (p *parser) parseDefinition() ast.Decl {
-	panic(bailout{})
 }
 
 func (p *parser) next() {

@@ -68,6 +68,8 @@ func (t Type) String() string {
 		return "of"
 	case Case:
 		return "case"
+	case Infix:
+		return "infix"
 	case Infixl:
 		return "infixl"
 	case Infixr:

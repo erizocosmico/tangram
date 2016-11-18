@@ -139,19 +139,130 @@ const (
 )
 
 type InfixDecl struct {
-	InfixPos *token.Position
-	Dir      InfixDir
+	InfixPos token.Pos
+	Assoc    Associativity
 	Op       *Ident
 	Priority *BasicLit
 }
 
-type InfixDir bool
+type Associativity byte
 
 const (
-	Infixr InfixDir = true
-	Infixl InfixDir = false
+	NonAssoc Associativity = iota
+	LeftAssoc
+	RightAssoc
 )
 
 func (InfixDecl) isDecl()          {}
-func (d InfixDecl) Pos() token.Pos { return d.InfixPos.Offset }
+func (d InfixDecl) Pos() token.Pos { return d.InfixPos }
 func (d InfixDecl) End() token.Pos { return d.Op.End() }
+
+type AliasDecl struct {
+	TypePos token.Pos
+	Alias   token.Pos
+	Eq      token.Pos
+	Name    *Ident
+	Args    []*Ident
+	Type    Type
+}
+
+func (d AliasDecl) isDecl()        {}
+func (d AliasDecl) Pos() token.Pos { return d.TypePos }
+func (d AliasDecl) End() token.Pos { return d.Type.Pos() }
+
+type UnionDecl struct {
+	TypePos token.Pos
+	Eq      token.Pos
+	Name    *Ident
+	Args    []*Ident
+	Types   []*Constructor
+}
+
+func (d UnionDecl) isDecl()        {}
+func (d UnionDecl) Pos() token.Pos { return d.TypePos }
+func (d UnionDecl) End() token.Pos {
+	if len(d.Types) == 0 {
+		return token.NoPos
+	}
+	return d.Types[len(d.Types)-1].End()
+}
+
+type Constructor struct {
+	Name *Ident
+	Args []Type
+	Pipe token.Pos
+}
+
+func (c Constructor) Pos() token.Pos {
+	if c.Pipe != token.NoPos {
+		return c.Pipe
+	}
+	return c.Name.Pos()
+}
+func (c Constructor) End() token.Pos {
+	if len(c.Args) > 0 {
+		return c.Args[len(c.Args)-1].End()
+	}
+	return c.Name.End()
+}
+
+type Type interface {
+	Node
+	isType()
+}
+
+type NamedType struct {
+	Name       *Ident
+	Args       []Type
+	LeftParen  token.Pos
+	RightParen token.Pos
+}
+
+func (NamedType) isType() {}
+func (t NamedType) Pos() token.Pos {
+	if t.LeftParen != token.NoPos {
+		return t.LeftParen
+	}
+	return t.Name.Pos()
+}
+func (t NamedType) End() token.Pos {
+	if t.RightParen != token.NoPos {
+		return t.RightParen
+	}
+
+	if len(t.Args) > 0 {
+		return t.Args[len(t.Args)-1].End()
+	}
+
+	return t.Name.End()
+}
+
+type RecordType struct {
+	RightBrace token.Pos
+	LeftBrace  token.Pos
+	LeftParen  token.Pos
+	RightParen token.Pos
+	Fields     []*RecordTypeField
+}
+
+func (RecordType) isType() {}
+func (t RecordType) Pos() token.Pos {
+	if t.LeftParen != token.NoPos {
+		return t.LeftParen
+	}
+	return t.LeftBrace
+}
+func (t RecordType) End() token.Pos {
+	if t.RightParen != token.NoPos {
+		return t.RightParen
+	}
+
+	return t.RightBrace
+}
+
+type RecordTypeField struct {
+	Name  *Ident
+	Type  Type
+	Colon token.Pos
+	Comma token.Pos
+}
