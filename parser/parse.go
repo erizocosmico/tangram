@@ -2,6 +2,7 @@ package parser
 
 import (
 	"strconv"
+	"unicode"
 
 	"github.com/mvader/elm-compiler/ast"
 	"github.com/mvader/elm-compiler/scanner"
@@ -45,8 +46,7 @@ func (p *parser) parseFile() *ast.File {
 			imports = append(imports, p.parseImport())
 
 		case token.TypeDef:
-			p.errorMessage(p.tok.Position, "Type declarations are not implemented yet.")
-			panic(bailout{})
+			decls = append(decls, p.parseTypeDecl())
 
 		case token.Infixl, token.Infixr, token.Infix:
 			decls = append(decls, p.parseInfixDecl())
@@ -96,7 +96,7 @@ func (p *parser) parseImport() *ast.ImportDecl {
 
 	if p.is(token.As) {
 		p.expect(token.As)
-		decl.Alias = p.parseIdentifier()
+		decl.Alias = p.parseUpperName()
 	}
 
 	if p.is(token.Exposing) {
@@ -115,7 +115,7 @@ func (p *parser) parseImport() *ast.ImportDecl {
 }
 
 func (p *parser) parseModuleName() ast.ModuleName {
-	name := ast.ModuleName{p.parseIdentifier()}
+	name := ast.ModuleName{p.parseUpperName()}
 
 	for {
 		if !p.is(token.Dot) {
@@ -123,7 +123,7 @@ func (p *parser) parseModuleName() ast.ModuleName {
 		}
 
 		p.expect(token.Dot)
-		name = append(name, p.parseIdentifier())
+		name = append(name, p.parseUpperName())
 	}
 
 	return name
@@ -160,9 +160,12 @@ func (p *parser) parseExposedIdent() *ast.ExposedIdent {
 	ident := &ast.ExposedIdent{Ident: p.parseIdentifierOrOp()}
 
 	if p.is(token.LeftParen) {
+		if !unicode.IsUpper(rune(ident.Name[0])) {
+			p.errorMessage(ident.NamePos, "I was expecting an upper case name.")
+		}
 		var exposingList = new(ast.ExposingList)
 		exposingList.Lparen = p.expect(token.LeftParen)
-		exposingList.Idents = p.parseExposedIdents()
+		exposingList.Idents = p.parseConstructorExposedIdents()
 		if len(exposingList.Idents) == 0 {
 			p.errorExpectedOneOf(p.tok, token.Range, token.Identifier)
 		}
@@ -171,6 +174,31 @@ func (p *parser) parseExposedIdent() *ast.ExposedIdent {
 	}
 
 	return ident
+}
+
+func (p *parser) parseConstructorExposedIdents() (idents []*ast.ExposedIdent) {
+	if p.is(token.Range) {
+		p.expect(token.Range)
+		idents = append(
+			idents,
+			&ast.ExposedIdent{
+				Ident: &ast.Ident{Name: token.Range.String(), NamePos: p.tok.Position},
+			},
+		)
+		return
+	}
+
+	for {
+		idents = append(
+			idents,
+			&ast.ExposedIdent{Ident: p.parseUpperName()},
+		)
+		if p.is(token.RightParen) {
+			return
+		}
+
+		p.expect(token.Comma)
+	}
 }
 
 func (p *parser) parseIdentifierOrOp() *ast.Ident {
@@ -194,6 +222,22 @@ func (p *parser) parseIdentifier() *ast.Ident {
 	}
 
 	return &ast.Ident{NamePos: pos, Name: name}
+}
+
+func (p *parser) parseUpperName() *ast.Ident {
+	ident := p.parseIdentifier()
+	if !unicode.IsUpper(rune(ident.Name[0])) {
+		p.errorMessage(ident.NamePos, "I was expecting an upper case name.")
+	}
+	return ident
+}
+
+func (p *parser) parseLowerName() *ast.Ident {
+	ident := p.parseIdentifier()
+	if !unicode.IsLower(rune(ident.Name[0])) {
+		p.errorMessage(ident.NamePos, "I was expecting a lower case name.")
+	}
+	return ident
 }
 
 func (p *parser) parseOp() *ast.Ident {
@@ -261,6 +305,141 @@ func (p *parser) parseInfixDecl() ast.Decl {
 		Priority: priority,
 		Op:       op,
 	}
+}
+
+func (p *parser) parseTypeDecl() ast.Decl {
+	typePos := p.expect(token.TypeDef)
+	if p.is(token.Alias) {
+		return p.parseAliasType(typePos)
+	}
+
+	return p.parseUnionType(typePos)
+}
+
+func (p *parser) parseAliasType(typePos token.Pos) ast.Decl {
+	decl := &ast.AliasDecl{
+		TypePos: typePos,
+		Alias:   p.expect(token.Alias),
+	}
+	decl.Name = p.parseUpperName()
+	decl.Args = p.parseTypeDeclArgs()
+	decl.Eq = p.expect(token.Assign)
+	decl.Type = p.parseType()
+	return decl
+}
+
+func (p *parser) parseUnionType(typePos token.Pos) ast.Decl {
+	decl := &ast.UnionDecl{TypePos: typePos}
+	decl.Name = p.parseUpperName()
+	decl.Args = p.parseTypeDeclArgs()
+	decl.Eq = p.expect(token.Assign)
+	decl.Types = p.parseConstructors()
+	return decl
+}
+
+func (p *parser) parseTypeDeclArgs() (idents []*ast.Ident) {
+	for p.is(token.Identifier) {
+		idents = append(idents, p.parseLowerName())
+	}
+	return
+}
+
+func (p *parser) parseConstructors() (cs []*ast.Constructor) {
+	cs = append(cs, p.parseConstructor())
+	for p.is(token.Pipe) {
+		cs = append(cs, p.parseConstructor())
+	}
+	return
+}
+
+func (p *parser) parseConstructor() *ast.Constructor {
+	c := new(ast.Constructor)
+	if p.is(token.Pipe) {
+		c.Pipe = p.expect(token.Pipe)
+	}
+
+	c.Name = p.parseUpperName()
+	c.Args = p.parseTypeList()
+	return c
+}
+
+func (p *parser) parseTypeList() (types []ast.Type) {
+	for p.is(token.LeftParen) || p.is(token.Identifier) || p.is(token.LeftBrace) {
+		types = append(types, p.parseType())
+	}
+	return
+}
+
+func (p *parser) parseType() ast.Type {
+	switch p.tok.Type {
+	case token.LeftParen:
+		lparenPos := p.expect(token.LeftParen)
+		typ := p.parseType()
+
+		// is a tuple
+		if p.is(token.Comma) {
+			t := &ast.TupleType{
+				Lparen: lparenPos,
+				Elems: []*ast.TupleElem{
+					&ast.TupleElem{Type: typ},
+				},
+			}
+
+			for !p.is(token.RightParen) {
+				elem := new(ast.TupleElem)
+				elem.Comma = p.expect(token.Comma)
+				elem.Type = p.parseType()
+				t.Elems = append(t.Elems, elem)
+			}
+
+			t.Rparen = p.expect(token.RightParen)
+			return t
+		}
+
+		return &ast.ParenthesizedType{
+			Lparen: lparenPos,
+			Type:   typ,
+			Rparen: p.expect(token.RightParen),
+		}
+	case token.Identifier:
+		name := p.parseIdentifier()
+		if unicode.IsLower(rune(name.Name[0])) {
+			return &ast.BasicType{Name: name}
+		}
+
+		return &ast.BasicType{
+			Name: name,
+			Args: p.parseTypeList(),
+		}
+	case token.LeftBrace:
+		return p.parseRecordType()
+	default:
+		p.errorExpectedOneOf(p.tok, token.LeftParen, token.LeftBrace, token.Identifier)
+		// TODO: think of a better way to recover from this error
+		panic(bailout{})
+	}
+}
+
+func (p *parser) parseRecordType() *ast.RecordType {
+	t := &ast.RecordType{
+		Lbrace: p.expect(token.LeftBrace),
+	}
+
+	for !p.is(token.RightBrace) {
+		comma := token.NoPos
+		if len(t.Fields) > 0 {
+			comma = p.expect(token.Comma)
+		}
+
+		f := &ast.RecordTypeField{Comma: comma}
+		f.Name = p.parseLowerName()
+		f.Colon = p.expect(token.Colon)
+		f.Type = p.parseType()
+		t.Fields = append(t.Fields, f)
+	}
+
+	t.Rbrace = p.expect(token.RightBrace)
+	return t
 }
 
 func (p *parser) next() {

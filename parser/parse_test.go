@@ -19,6 +19,7 @@ func TestParseModule(t *testing.T) {
 		exposed [][]string
 	}{
 		{"module Foo", true, false, "Foo", nil},
+		{"module foo", false, false, "", nil},
 		{"bar Foo", false, false, "", nil},
 		{"module Foo.Bar", true, false, "Foo.Bar", nil},
 		{"module Foo.Bar.Baz", true, false, "Foo.Bar.Baz", nil},
@@ -26,6 +27,8 @@ func TestParseModule(t *testing.T) {
 		{"module Foo exposing ()", false, false, "Foo", nil},
 		{"module Foo exposing (..)", true, false, "Foo", [][]string{{".."}}},
 		{"module Foo exposing (foo)", true, false, "Foo", [][]string{{"foo"}}},
+		{"module Foo exposing (foo(..))", false, false, "", nil},
+		{"module Foo exposing (Foo(foo, Bar))", false, false, "", nil},
 		{"module Foo exposing (foo, bar)", true, false, "Foo", [][]string{{"foo"}, {"bar"}}},
 		{"module Foo exposing (foo, bar, baz)", true, false, "Foo", [][]string{{"foo"}, {"bar"}, {"baz"}}},
 		{"module Foo exposing (foo, (:>), baz)", true, false, "Foo", [][]string{{"foo"}, {":>"}, {"baz"}}},
@@ -78,6 +81,7 @@ func TestParseImport(t *testing.T) {
 		exposed [][]string
 	}{
 		{"import Foo", true, false, "Foo", "", nil},
+		{"import foo", false, false, "", "", nil},
 		{"bar Foo", false, false, "", "", nil},
 		{"import Foo.Bar", true, false, "Foo.Bar", "", nil},
 		{"import Foo.Bar.Baz", true, false, "Foo.Bar.Baz", "", nil},
@@ -86,11 +90,13 @@ func TestParseImport(t *testing.T) {
 		{"import Foo exposing ()", false, false, "Foo", "", nil},
 		{"import Foo exposing (..)", true, false, "Foo", "", [][]string{{".."}}},
 		{"import Foo as Bar exposing (..)", true, false, "Foo", "Bar", [][]string{{".."}}},
+		{"import foo as bar exposing (..)", false, false, "", "", nil},
 		{"import Foo exposing (foo)", true, false, "Foo", "", [][]string{{"foo"}}},
 		{"import Foo exposing (foo, bar)", true, false, "Foo", "", [][]string{{"foo"}, {"bar"}}},
 		{"import Foo exposing (foo, bar, baz)", true, false, "Foo", "", [][]string{{"foo"}, {"bar"}, {"baz"}}},
 		{"import Foo exposing (foo, (:>), baz)", true, false, "Foo", "", [][]string{{"foo"}, {":>"}, {"baz"}}},
 		{"import Foo exposing ((:>), (:>), (:>))", true, false, "Foo", "", [][]string{{":>"}, {":>"}, {":>"}}},
+		{"import Foo exposing (bar(..))", false, false, "", "", nil},
 		{"import Foo exposing (foo, Bar(..), Baz(A, B, C))", true, false, "Foo", "", [][]string{
 			{"foo"},
 			{"Bar", ".."},
@@ -171,6 +177,293 @@ func TestParseInfixDecl(t *testing.T) {
 			} else {
 				require.NotEqual(0, len(p.errors), c.input)
 			}
+		}()
+	}
+}
+
+const inputAliasSimpleType = `
+type alias Foo = Int
+`
+
+const inputAliasParenBasicType = `
+type alias Foo = (Int)
+`
+
+const inputAliasBasicTypeArg = `
+type alias Foo a = List a
+`
+
+const inputAliasBasicTypeArgs = `
+type alias Foo a b = HashMap a b
+`
+
+const inputAliasRecord = `
+type alias Point = {x: Int, y: Int}
+`
+
+const inputAliasRecordNoFields = `
+type alias Nothing = {}
+`
+
+const inputAliasRecord1Field = `
+type alias X = {x: Int}
+`
+
+const inputAliasRecordNested = `
+type alias Foo = {x: {x1: Int, x2: Int}, y: Int}
+`
+
+const inputAliasRecordArgs = `
+type alias Foo a = {x: List a}
+`
+
+const inputAliasTuple = `
+type alias Point = (Int, Int)
+`
+
+const inputAliasTupleArgs = `
+type alias Foo a b = (a, b)
+`
+
+const inputAliasTupleParens = `
+type alias Point = (((Int), (Int)))
+`
+
+func TestParseTypeAlias(t *testing.T) {
+	cases := []struct {
+		input  string
+		assert declAssert
+	}{
+		{
+			inputAliasSimpleType,
+			assertAlias(
+				assertName("Foo"),
+				assertNoArgs,
+				assertBasicType("Int"),
+			),
+		},
+		{
+			inputAliasParenBasicType,
+			assertAlias(
+				assertName("Foo"),
+				assertNoArgs,
+				assertParens(
+					assertBasicType("Int"),
+				),
+			),
+		},
+		{
+			inputAliasBasicTypeArg,
+			assertAlias(
+				assertName("Foo"),
+				assertArgs("a"),
+				assertBasicType(
+					"List",
+					assertBasicType("a"),
+				),
+			),
+		},
+		{
+			inputAliasBasicTypeArgs,
+			assertAlias(
+				assertName("Foo"),
+				assertArgs("a", "b"),
+				assertBasicType(
+					"HashMap",
+					assertBasicType("a"),
+					assertBasicType("b"),
+				),
+			),
+		},
+		{
+			inputAliasRecord,
+			assertAlias(
+				assertName("Point"),
+				assertNoArgs,
+				assertRecord(
+					assertBasicRecordField("x", "Int"),
+					assertBasicRecordField("y", "Int"),
+				),
+			),
+		},
+		{
+			inputAliasRecordNoFields,
+			assertAlias(
+				assertName("Nothing"),
+				assertNoArgs,
+				assertRecord(),
+			),
+		},
+		{
+			inputAliasRecord1Field,
+			assertAlias(
+				assertName("X"),
+				assertNoArgs,
+				assertRecord(
+					assertBasicRecordField("x", "Int"),
+				),
+			),
+		},
+		{
+			inputAliasRecordNested,
+			assertAlias(
+				assertName("Foo"),
+				assertNoArgs,
+				assertRecord(
+					assertRecordField(
+						"x",
+						assertRecord(
+							assertBasicRecordField("x1", "Int"),
+							assertBasicRecordField("x2", "Int"),
+						),
+					),
+					assertBasicRecordField("y", "Int"),
+				),
+			),
+		},
+		{
+			inputAliasRecordArgs,
+			assertAlias(
+				assertName("Foo"),
+				assertArgs("a"),
+				assertRecord(
+					assertRecordField(
+						"x",
+						assertBasicType("List", assertBasicType("a")),
+					),
+				),
+			),
+		},
+		{
+			inputAliasTuple,
+			assertAlias(
+				assertName("Point"),
+				assertNoArgs,
+				assertTuple(
+					assertBasicType("Int"),
+					assertBasicType("Int"),
+				),
+			),
+		},
+		{
+			inputAliasTupleArgs,
+			assertAlias(
+				assertName("Foo"),
+				assertArgs("a", "b"),
+				assertTuple(
+					assertBasicType("a"),
+					assertBasicType("b"),
+				),
+			),
+		},
+		{
+			inputAliasTupleParens,
+			assertAlias(
+				assertName("Point"),
+				assertNoArgs,
+				assertParens(
+					assertTuple(
+						assertParens(assertBasicType("Int")),
+						assertParens(assertBasicType("Int")),
+					),
+				),
+			),
+		},
+	}
+
+	for _, c := range cases {
+		func() {
+			defer assertEOF(t, "", false)
+
+			p := stringParser(c.input)
+			c.assert(t, p.parseTypeDecl())
+		}()
+	}
+}
+
+const inputUnionOne = `
+type Foo = A
+`
+
+const inputUnionNames = `
+type Cmp = Lt | Eq | Gt
+`
+
+const inputUnionArgs = `
+type Cmp a = Lt a | Eq a | Gt a
+`
+
+const inputUnionRecords = `
+type Foo a b = A {a: a} | B {b: b, c: String} | C (List Int)
+`
+
+func TestParseTypeUnion(t *testing.T) {
+	cases := []struct {
+		input  string
+		assert declAssert
+	}{
+		{
+			inputUnionOne,
+			assertUnion(
+				assertName("Foo"),
+				assertNoArgs,
+				assertConstructor("A"),
+			),
+		},
+		{
+			inputUnionNames,
+			assertUnion(
+				assertName("Cmp"),
+				assertNoArgs,
+				assertConstructor("Lt"),
+				assertConstructor("Eq"),
+				assertConstructor("Gt"),
+			),
+		},
+		{
+			inputUnionArgs,
+			assertUnion(
+				assertName("Cmp"),
+				assertArgs("a"),
+				assertConstructor("Lt", assertBasicType("a")),
+				assertConstructor("Eq", assertBasicType("a")),
+				assertConstructor("Gt", assertBasicType("a")),
+			),
+		},
+		{
+			inputUnionRecords,
+			assertUnion(
+				assertName("Foo"),
+				assertArgs("a", "b"),
+				assertConstructor(
+					"A",
+					assertRecord(
+						assertBasicRecordField("a", "a"),
+					),
+				),
+				assertConstructor(
+					"B",
+					assertRecord(
+						assertBasicRecordField("b", "b"),
+						assertBasicRecordField("c", "String"),
+					),
+				),
+				assertConstructor(
+					"C",
+					assertParens(
+						assertBasicType("List", assertBasicType("Int")),
+					),
+				),
+			),
+		},
+	}
+
+	for _, c := range cases {
+		func() {
+			defer assertEOF(t, "", false)
+
+			p := stringParser(c.input)
+			c.assert(t, p.parseTypeDecl())
 		}()
 	}
 }

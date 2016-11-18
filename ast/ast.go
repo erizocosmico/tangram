@@ -211,25 +211,24 @@ type Type interface {
 	isType()
 }
 
-type NamedType struct {
-	Name       *Ident
-	Args       []Type
-	LeftParen  token.Pos
-	RightParen token.Pos
+type ParenthesizedType struct {
+	Lparen token.Pos
+	Rparen token.Pos
+	Type   Type
 }
 
-func (NamedType) isType() {}
-func (t NamedType) Pos() token.Pos {
-	if t.LeftParen != token.NoPos {
-		return t.LeftParen
-	}
-	return t.Name.Pos()
-}
-func (t NamedType) End() token.Pos {
-	if t.RightParen != token.NoPos {
-		return t.RightParen
-	}
+func (ParenthesizedType) isType()          {}
+func (t ParenthesizedType) Pos() token.Pos { return t.Lparen }
+func (t ParenthesizedType) End() token.Pos { return t.Rparen }
 
+type BasicType struct {
+	Name *Ident
+	Args []Type
+}
+
+func (BasicType) isType()          {}
+func (t BasicType) Pos() token.Pos { return t.Name.Pos() }
+func (t BasicType) End() token.Pos {
 	if len(t.Args) > 0 {
 		return t.Args[len(t.Args)-1].End()
 	}
@@ -238,31 +237,33 @@ func (t NamedType) End() token.Pos {
 }
 
 type RecordType struct {
-	RightBrace token.Pos
-	LeftBrace  token.Pos
-	LeftParen  token.Pos
-	RightParen token.Pos
-	Fields     []*RecordTypeField
+	Lbrace token.Pos
+	Rbrace token.Pos
+	Fields []*RecordTypeField
 }
 
-func (RecordType) isType() {}
-func (t RecordType) Pos() token.Pos {
-	if t.LeftParen != token.NoPos {
-		return t.LeftParen
-	}
-	return t.LeftBrace
-}
-func (t RecordType) End() token.Pos {
-	if t.RightParen != token.NoPos {
-		return t.RightParen
-	}
-
-	return t.RightBrace
-}
+func (RecordType) isType()          {}
+func (t RecordType) Pos() token.Pos { return t.Lbrace }
+func (t RecordType) End() token.Pos { return t.Rbrace }
 
 type RecordTypeField struct {
 	Name  *Ident
 	Type  Type
 	Colon token.Pos
+	Comma token.Pos
+}
+
+type TupleType struct {
+	Lparen token.Pos
+	Rparen token.Pos
+	Elems  []*TupleElem
+}
+
+func (TupleType) isType()          {}
+func (t TupleType) Pos() token.Pos { return t.Lparen }
+func (t TupleType) End() token.Pos { return t.Rparen }
+
+type TupleElem struct {
+	Type  Type
 	Comma token.Pos
 }
