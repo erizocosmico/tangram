@@ -211,16 +211,6 @@ type Type interface {
 	isType()
 }
 
-type ParenthesizedType struct {
-	Lparen token.Pos
-	Rparen token.Pos
-	Type   Type
-}
-
-func (ParenthesizedType) isType()          {}
-func (t ParenthesizedType) Pos() token.Pos { return t.Lparen }
-func (t ParenthesizedType) End() token.Pos { return t.Rparen }
-
 type BasicType struct {
 	Name *Ident
 	Args []Type
@@ -256,14 +246,9 @@ type RecordTypeField struct {
 type TupleType struct {
 	Lparen token.Pos
 	Rparen token.Pos
-	Elems  []*TupleElem
+	Elems  []Type
 }
 
 func (TupleType) isType()          {}
 func (t TupleType) Pos() token.Pos { return t.Lparen }
 func (t TupleType) End() token.Pos { return t.Rparen }
-
-type TupleElem struct {
-	Type  Type
-	Comma token.Pos
-}

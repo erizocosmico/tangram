@@ -247,9 +247,7 @@ func TestParseTypeAlias(t *testing.T) {
 			assertAlias(
 				assertName("Foo"),
 				assertNoArgs,
-				assertParens(
-					assertBasicType("Int"),
-				),
+				assertBasicType("Int"),
 			),
 		},
 		{
@@ -361,11 +359,9 @@ func TestParseTypeAlias(t *testing.T) {
 			assertAlias(
 				assertName("Point"),
 				assertNoArgs,
-				assertParens(
-					assertTuple(
-						assertParens(assertBasicType("Int")),
-						assertParens(assertBasicType("Int")),
-					),
+				assertTuple(
+					assertBasicType("Int"),
+					assertBasicType("Int"),
 				),
 			),
 		},
@@ -450,9 +446,7 @@ func TestParseTypeUnion(t *testing.T) {
 				),
 				assertConstructor(
 					"C",
-					assertParens(
-						assertBasicType("List", assertBasicType("Int")),
-					),
+					assertBasicType("List", assertBasicType("Int")),
 				),
 			),
 		},

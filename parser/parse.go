@@ -380,27 +380,20 @@ func (p *parser) parseType() ast.Type {
 		if p.is(token.Comma) {
 			t := &ast.TupleType{
 				Lparen: lparenPos,
-				Elems: []*ast.TupleElem{
-					&ast.TupleElem{Type: typ},
-				},
+				Elems:  []ast.Type{typ},
 			}
 
 			for !p.is(token.RightParen) {
-				elem := new(ast.TupleElem)
-				elem.Comma = p.expect(token.Comma)
-				elem.Type = p.parseType()
-				t.Elems = append(t.Elems, elem)
+				p.expect(token.Comma)
+				t.Elems = append(t.Elems, p.parseType())
 			}
 
 			t.Rparen = p.expect(token.RightParen)
 			return t
 		}
 
-		return &ast.ParenthesizedType{
-			Lparen: lparenPos,
-			Type:   typ,
-			Rparen: p.expect(token.RightParen),
-		}
+		p.expect(token.RightParen)
+		return typ
 	case token.Identifier:
 		name := p.parseIdentifier()
 		if unicode.IsLower(rune(name.Name[0])) {

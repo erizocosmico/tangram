@@ -141,8 +141,6 @@ func printType(indent int, typ ast.Type) {
 		printRecordType(indent, t)
 	case *ast.BasicType:
 		printBasicType(indent, t)
-	case *ast.ParenthesizedType:
-		printType(indent, t.Type)
 	}
 }
 
@@ -150,7 +148,7 @@ func printTupleType(indent int, tuple *ast.TupleType) {
 	printIndent(indent)
 	color.Yellow("Tuple:")
 	for _, e := range tuple.Elems {
-		printType(indent+1, e.Type)
+		printType(indent+1, e)
 	}
 }
 

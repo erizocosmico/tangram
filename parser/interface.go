@@ -9,6 +9,7 @@ import (
 	"github.com/mvader/elm-compiler/scanner"
 )
 
+// ParseFile returns the AST representation of the given file.
 func ParseFile(fileName string, source io.Reader) (f *ast.File, err error) {
 	var p parser
 	s := scanner.New(fileName, source)

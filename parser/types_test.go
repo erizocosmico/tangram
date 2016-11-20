@@ -75,14 +75,6 @@ func assertArgs(args ...string) func(*testing.T, []*ast.Ident) {
 	}
 }
 
-func assertParens(typeAssert typeAssert) typeAssert {
-	return func(t *testing.T, typ ast.Type) {
-		parens, ok := typ.(*ast.ParenthesizedType)
-		require.True(t, ok, "type is not parenthesized")
-		typeAssert(t, parens.Type)
-	}
-}
-
 func assertTuple(types ...typeAssert) typeAssert {
 	return func(t *testing.T, typ ast.Type) {
 		tuple, ok := typ.(*ast.TupleType)
@@ -90,7 +82,7 @@ func assertTuple(types ...typeAssert) typeAssert {
 
 		require.Equal(t, len(types), len(tuple.Elems), "invalid number of tuple elements")
 		for i := range types {
-			types[i](t, tuple.Elems[i].Type)
+			types[i](t, tuple.Elems[i])
 		}
 	}
 }
