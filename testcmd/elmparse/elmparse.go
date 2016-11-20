@@ -86,14 +86,19 @@ func printDecl(decl ast.Decl) {
 	switch d := decl.(type) {
 	case *ast.InfixDecl:
 		printInfixDecl(d)
+	case *ast.UnionDecl:
+		printUnionDecl(d)
+	case *ast.AliasDecl:
+		printAliasDecl(d)
 	default:
 		fmt.Println("Not implemented decl printer of type:", reflect.TypeOf(d))
 	}
 }
 
 func printInfixDecl(decl *ast.InfixDecl) {
-	color.Yellow("Infix:")
 	printIndent(1)
+	color.Yellow("Infix:")
+	printIndent(2)
 	fmt.Print("- Associativity: ")
 	switch decl.Assoc {
 	case ast.LeftAssoc:
@@ -103,10 +108,67 @@ func printInfixDecl(decl *ast.InfixDecl) {
 	case ast.NonAssoc:
 		fmt.Println("non-assoc")
 	}
-	printIndent(1)
+	printIndent(2)
 	fmt.Println("- Operator:", decl.Op.Name)
-	printIndent(1)
+	printIndent(2)
 	fmt.Println("- Priority:", decl.Priority.Value)
+}
+
+func printUnionDecl(decl *ast.UnionDecl) {
+	printIndent(1)
+	fmt.Println(color.YellowString("Union:"), decl.Name.Name)
+
+	for _, c := range decl.Types {
+		printIndent(2)
+		fmt.Println("- " + c.Name.Name)
+		for _, a := range c.Args {
+			printType(3, a)
+		}
+	}
+}
+
+func printAliasDecl(decl *ast.AliasDecl) {
+	printIndent(1)
+	fmt.Println(color.YellowString("Alias:"), decl.Name.Name)
+	printType(2, decl.Type)
+}
+
+func printType(indent int, typ ast.Type) {
+	switch t := typ.(type) {
+	case *ast.TupleType:
+		printTupleType(indent, t)
+	case *ast.RecordType:
+		printRecordType(indent, t)
+	case *ast.BasicType:
+		printBasicType(indent, t)
+	case *ast.ParenthesizedType:
+		printType(indent, t.Type)
+	}
+}
+
+func printTupleType(indent int, tuple *ast.TupleType) {
+	printIndent(indent)
+	color.Yellow("Tuple:")
+	for _, e := range tuple.Elems {
+		printType(indent+1, e.Type)
+	}
+}
+
+func printBasicType(indent int, t *ast.BasicType) {
+	fmt.Println(t.Name.Name)
+	for _, a := range t.Args {
+		printType(indent+1, a)
+	}
+}
+
+func printRecordType(indent int, t *ast.RecordType) {
+	printIndent(indent)
+	color.Yellow("Record:")
+	for _, f := range t.Fields {
+		printIndent(indent + 1)
+		fmt.Printf("- %s: ", f.Name.Name)
+		printType(indent+2, f.Type)
+	}
 }
 
 const helpText = `Display a parsed AST
