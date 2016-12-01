@@ -8,7 +8,7 @@ import (
 	"sync"
 	"unicode"
 
-	"github.com/mvader/elm-compiler/token"
+	"github.com/mvader/elmo/token"
 )
 
 type stateFunc func(*Scanner) (stateFunc, error)

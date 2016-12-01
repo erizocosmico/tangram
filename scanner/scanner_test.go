@@ -5,7 +5,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/mvader/elm-compiler/token"
+	"github.com/mvader/elmo/token"
 	"github.com/stretchr/testify/require"
 )
 

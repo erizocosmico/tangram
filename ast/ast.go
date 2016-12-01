@@ -3,7 +3,7 @@ package ast
 import (
 	"strings"
 
-	"github.com/mvader/elm-compiler/token"
+	"github.com/mvader/elmo/token"
 )
 
 type File struct {

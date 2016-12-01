@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/mvader/elm-compiler/scanner"
-	"github.com/mvader/elm-compiler/token"
+	"github.com/mvader/elmo/scanner"
+	"github.com/mvader/elmo/token"
 )
 
 var help = flag.Bool("help", false, "display help")

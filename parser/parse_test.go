@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mvader/elm-compiler/ast"
-	"github.com/mvader/elm-compiler/scanner"
+	"github.com/mvader/elmo/ast"
+	"github.com/mvader/elmo/scanner"
 	"github.com/stretchr/testify/require"
 )
 

@@ -7,8 +7,8 @@ import (
 	"reflect"
 
 	"github.com/fatih/color"
-	"github.com/mvader/elm-compiler/ast"
-	"github.com/mvader/elm-compiler/parser"
+	"github.com/mvader/elmo/ast"
+	"github.com/mvader/elmo/parser"
 )
 
 var help = flag.Bool("help", false, "display help")
@@ -86,12 +86,97 @@ func printDecl(decl ast.Decl) {
 	switch d := decl.(type) {
 	case *ast.InfixDecl:
 		printInfixDecl(d)
-	case *ast.UnionDecl:
-		printUnionDecl(d)
 	case *ast.AliasDecl:
 		printAliasDecl(d)
+	case *ast.UnionDecl:
+		printUnionDecl(d)
 	default:
 		fmt.Println("Not implemented decl printer of type:", reflect.TypeOf(d))
+	}
+}
+
+func printAliasDecl(decl *ast.AliasDecl) {
+	printIndent(1)
+	fmt.Println(color.YellowString("Alias Type:"), decl.Name.Name)
+	if len(decl.Args) > 0 {
+		printIndent(2)
+		fmt.Println("- Args:")
+		for _, a := range decl.Args {
+			printIndent(2)
+			fmt.Println("-", a.Name)
+		}
+	}
+
+	printIndent(2)
+	fmt.Println("- Type:")
+	printType(3, decl.Type)
+}
+
+func printUnionDecl(decl *ast.UnionDecl) {
+	printIndent(1)
+	fmt.Println(color.YellowString("Union Type:"), decl.Name.Name)
+	if len(decl.Args) > 0 {
+		printIndent(2)
+		fmt.Println("- Args:")
+		for _, a := range decl.Args {
+			printIndent(2)
+			fmt.Println("-", a.Name)
+		}
+	}
+
+	printIndent(2)
+	fmt.Println("- Constructors:")
+	for _, t := range decl.Types {
+		printConstructor(t)
+	}
+}
+
+func printConstructor(c *ast.Constructor) {
+	printIndent(3)
+	fmt.Println("-", c.Name.Name)
+	for _, a := range c.Args {
+		printType(4, a)
+	}
+}
+
+func printType(indent int, typ ast.Type) {
+	switch t := typ.(type) {
+	case *ast.TupleType:
+		printTuple(indent, t)
+	case *ast.RecordType:
+		printRecord(indent, t)
+	case *ast.BasicType:
+		printBasicType(indent, t)
+	}
+}
+
+func printTuple(indent int, t *ast.TupleType) {
+	printIndent(indent)
+	color.Yellow("- Tuple:")
+	for _, el := range t.Elems {
+		printType(indent+1, el)
+	}
+}
+
+func printRecord(indent int, t *ast.RecordType) {
+	printIndent(indent)
+	color.Yellow("- Record:")
+	for _, f := range t.Fields {
+		printRecordField(indent+1, f)
+	}
+}
+
+func printRecordField(indent int, f *ast.RecordTypeField) {
+	printIndent(indent)
+	fmt.Printf("- %s:\n", f.Name.Name)
+	printType(indent+1, f.Type)
+}
+
+func printBasicType(indent int, t *ast.BasicType) {
+	printIndent(indent)
+	fmt.Println(t.Name.Name)
+	for _, a := range t.Args {
+		printType(indent, a)
 	}
 }
 
@@ -112,61 +197,6 @@ func printInfixDecl(decl *ast.InfixDecl) {
 	fmt.Println("- Operator:", decl.Op.Name)
 	printIndent(2)
 	fmt.Println("- Priority:", decl.Priority.Value)
-}
-
-func printUnionDecl(decl *ast.UnionDecl) {
-	printIndent(1)
-	fmt.Println(color.YellowString("Union:"), decl.Name.Name)
-
-	for _, c := range decl.Types {
-		printIndent(2)
-		fmt.Println("- " + c.Name.Name)
-		for _, a := range c.Args {
-			printType(3, a)
-		}
-	}
-}
-
-func printAliasDecl(decl *ast.AliasDecl) {
-	printIndent(1)
-	fmt.Println(color.YellowString("Alias:"), decl.Name.Name)
-	printType(2, decl.Type)
-}
-
-func printType(indent int, typ ast.Type) {
-	switch t := typ.(type) {
-	case *ast.TupleType:
-		printTupleType(indent, t)
-	case *ast.RecordType:
-		printRecordType(indent, t)
-	case *ast.BasicType:
-		printBasicType(indent, t)
-	}
-}
-
-func printTupleType(indent int, tuple *ast.TupleType) {
-	printIndent(indent)
-	color.Yellow("Tuple:")
-	for _, e := range tuple.Elems {
-		printType(indent+1, e)
-	}
-}
-
-func printBasicType(indent int, t *ast.BasicType) {
-	fmt.Println(t.Name.Name)
-	for _, a := range t.Args {
-		printType(indent+1, a)
-	}
-}
-
-func printRecordType(indent int, t *ast.RecordType) {
-	printIndent(indent)
-	color.Yellow("Record:")
-	for _, f := range t.Fields {
-		printIndent(indent + 1)
-		fmt.Printf("- %s: ", f.Name.Name)
-		printType(indent+2, f.Type)
-	}
 }
 
 const helpText = `Display a parsed AST

@@ -3,7 +3,7 @@ package parser
 import (
 	"testing"
 
-	"github.com/mvader/elm-compiler/ast"
+	"github.com/mvader/elmo/ast"
 
 	"github.com/stretchr/testify/require"
 )

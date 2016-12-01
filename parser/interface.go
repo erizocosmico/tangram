@@ -5,8 +5,8 @@ import (
 	"io"
 	"strings"
 
-	"github.com/mvader/elm-compiler/ast"
-	"github.com/mvader/elm-compiler/scanner"
+	"github.com/mvader/elmo/ast"
+	"github.com/mvader/elmo/scanner"
 )
 
 // ParseFile returns the AST representation of the given file.

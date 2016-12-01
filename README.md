@@ -1,2 +1,2 @@
-# elm-compiler
+# elmo
 Elm language compiler in Go (and to Go)
