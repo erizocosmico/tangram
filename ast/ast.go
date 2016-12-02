@@ -140,12 +140,14 @@ const (
 
 // BasicLit represents a basic literal.
 type BasicLit struct {
-	Pos   *token.Position
-	Type  BasicLitType
-	Value string
+	Position *token.Position
+	Type     BasicLitType
+	Value    string
 }
 
-func (*BasicLit) isExpr() {}
+func (b *BasicLit) Pos() token.Pos { return b.Position.Offset }
+func (b *BasicLit) End() token.Pos { return b.Pos() + token.Pos(len(b.Value)) }
+func (*BasicLit) isExpr()          {}
 
 // BasicLitType is the type of a literal.
 type BasicLitType byte
@@ -317,6 +319,16 @@ type Definition struct {
 	Args       []*Ident
 	Body       Expr
 }
+
+func (*Definition) isDecl() {}
+func (d *Definition) Pos() token.Pos {
+	if d.Annotation != nil {
+		return d.Annotation.Name.Pos()
+	}
+
+	return d.Name.Pos()
+}
+func (d *Definition) End() token.Pos { return d.Body.End() }
 
 // TypeAnnotation is the annotation of a declaration with its type.
 type TypeAnnotation struct {

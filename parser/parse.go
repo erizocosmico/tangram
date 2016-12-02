@@ -273,9 +273,9 @@ func (p *parser) parseLiteral() *ast.BasicLit {
 	t := p.tok
 	p.next()
 	return &ast.BasicLit{
-		Type:  typ,
-		Pos:   t.Position,
-		Value: t.Value,
+		Type:     typ,
+		Position: t.Position,
+		Value:    t.Value,
 	}
 }
 
@@ -295,7 +295,7 @@ func (p *parser) parseInfixDecl() ast.Decl {
 	priority := p.parseLiteral()
 	n, _ := strconv.Atoi(priority.Value)
 	if n < 0 || n > 9 {
-		p.errorMessage(priority.Pos, "Operator priority must be a number between 0 and 9, both included.")
+		p.errorMessage(priority.Position, "Operator priority must be a number between 0 and 9, both included.")
 	}
 
 	op := p.parseOp()
@@ -484,6 +484,8 @@ func (p *parser) parseDefinition() ast.Decl {
 	}
 
 	for p.is(token.Identifier) {
+		// TODO: Args can have destructuring
+		// in the case of tuples and records
 		decl.Args = append(decl.Args, p.parseLowerName())
 	}
 
@@ -497,10 +499,10 @@ func (p *parser) parseExpr() ast.Expr {
 	case token.Identifier:
 	case token.Int, token.Char, token.String, token.True, token.False:
 		return p.parseLiteral()
-	default:
-		p.errorMessage(p.tok.Position, "cannot parse expression with token of type "+p.tok.Type.String())
-		panic(bailout{})
 	}
+
+	p.errorMessage(p.tok.Position, "cannot parse expression with token of type "+p.tok.Type.String())
+	panic(bailout{})
 }
 
 func (p *parser) next() {
