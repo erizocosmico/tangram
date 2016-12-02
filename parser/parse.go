@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"fmt"
 	"strconv"
 	"unicode"
 
@@ -52,8 +53,7 @@ func (p *parser) parseFile() *ast.File {
 			decls = append(decls, p.parseInfixDecl())
 
 		case token.Identifier, token.LeftParen:
-			p.errorMessage(p.tok.Position, "Declarations are not implemented yet.")
-			panic(bailout{})
+			decls = append(decls, p.parseDefinition())
 
 		default:
 			p.errorExpectedOneOf(p.tok, token.Import, token.TypeDef, token.Identifier)
@@ -456,6 +456,51 @@ func (p *parser) parseRecordType() *ast.RecordType {
 
 	t.Rbrace = p.expect(token.RightBrace)
 	return t
+}
+
+func (p *parser) parseDefinition() ast.Decl {
+	decl := new(ast.Definition)
+	name := p.parseIdentifierOrOp()
+	if p.is(token.Colon) {
+		decl.Annotation = &ast.TypeAnnotation{Name: name}
+		decl.Annotation.Colon = p.expect(token.Colon)
+		decl.Annotation.Type = p.parseType()
+
+		defName := p.parseIdentifierOrOp()
+		if defName.Name != name.Name {
+			p.errorMessage(
+				p.tok.Position,
+				fmt.Sprintf(
+					"A definition must be right below its type annotation, I found the definition of `%s` after the annotation of `%s` instead.",
+					defName.Name,
+					name.Name,
+				),
+			)
+		}
+
+		decl.Name = defName
+	} else {
+		decl.Name = name
+	}
+
+	for p.is(token.Identifier) {
+		decl.Args = append(decl.Args, p.parseLowerName())
+	}
+
+	decl.Assign = p.expect(token.Assign)
+	decl.Body = p.parseExpr()
+	return decl
+}
+
+func (p *parser) parseExpr() ast.Expr {
+	switch p.tok.Type {
+	case token.Identifier:
+	case token.Int, token.Char, token.String, token.True, token.False:
+		return p.parseLiteral()
+	default:
+		p.errorMessage(p.tok.Position, "cannot parse expression with token of type "+p.tok.Type.String())
+		panic(bailout{})
+	}
 }
 
 func (p *parser) next() {

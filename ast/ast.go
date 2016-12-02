@@ -145,6 +145,8 @@ type BasicLit struct {
 	Value string
 }
 
+func (*BasicLit) isExpr() {}
+
 // BasicLitType is the type of a literal.
 type BasicLitType byte
 
@@ -305,3 +307,26 @@ type TupleType struct {
 func (TupleType) isType()          {}
 func (t TupleType) Pos() token.Pos { return t.Lparen }
 func (t TupleType) End() token.Pos { return t.Rparen }
+
+// Definition is a node representing a definition of a value. A definition can
+// also be annotated with a type annotation.
+type Definition struct {
+	Annotation *TypeAnnotation
+	Name       *Ident
+	Assign     token.Pos
+	Args       []*Ident
+	Body       Expr
+}
+
+// TypeAnnotation is the annotation of a declaration with its type.
+type TypeAnnotation struct {
+	Name  *Ident
+	Colon token.Pos
+	Type  Type
+}
+
+// Expr is an expression node.
+type Expr interface {
+	Node
+	isExpr()
+}
