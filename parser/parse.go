@@ -133,7 +133,7 @@ func (p *parser) parseExposedIdents() []*ast.ExposedIdent {
 	if p.is(token.Range) {
 		p.expect(token.Range)
 		return []*ast.ExposedIdent{
-			&ast.ExposedIdent{
+			{
 				Ident: &ast.Ident{Name: token.Range.String(), NamePos: p.tok.Position},
 			},
 		}

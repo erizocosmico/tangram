@@ -6,6 +6,7 @@ import (
 	"github.com/mvader/elmo/token"
 )
 
+// File is the AST representation of a source code file.
 type File struct {
 	Name    string
 	Module  *ModuleDecl
@@ -13,16 +14,21 @@ type File struct {
 	Decls   []Decl
 }
 
+// Node is a node in the AST.
 type Node interface {
+	// Pos is the starting position of the node.
 	Pos() token.Pos
+	// End is the position of the ending of the node.
 	End() token.Pos
 }
 
+// Decl is a declaration node.
 type Decl interface {
 	Node
 	isDecl()
 }
 
+// ModuleName is an identifier made of one or more identifiers
 type ModuleName []*Ident
 
 func (n ModuleName) Pos() token.Pos {
@@ -47,14 +53,19 @@ func (n ModuleName) String() string {
 	return strings.Join(parts, ".")
 }
 
+// ExposedIdent is an identifier exposed in an import or module declaration.
+// It can as well expose more identifiers in the case of union types.
 type ExposedIdent struct {
 	*Ident
+	// Exposing will contain all the exposed identifiers of this particular
+	// exposed identifier. Only union types will have this.
 	Exposing *ExposingList
 }
 
 func (i *ExposedIdent) Pos() token.Pos { return i.Pos() }
 func (i *ExposedIdent) End() token.Pos { return i.Exposing.End() }
 
+// ExposingList is a list of exposed identifiers delimited by parenthesis.
 type ExposingList struct {
 	Idents []*ExposedIdent
 	Lparen token.Pos
@@ -64,6 +75,8 @@ type ExposingList struct {
 func (l *ExposingList) Pos() token.Pos { return l.Lparen }
 func (l *ExposingList) End() token.Pos { return l.Rparen }
 
+// ModuleDecl is a node representing a module declaration and contains the
+// name of the module and the identifiers it exposes, if any.
 type ModuleDecl struct {
 	Name     ModuleName
 	Module   token.Pos
@@ -79,6 +92,9 @@ func (d *ModuleDecl) End() token.Pos {
 }
 func (d *ModuleDecl) isDecl() {}
 
+// ImportDecl is a node representing an import declaration. It contains the
+// imported module as well as its alias, if any, and the exposed identifiers,
+// if any.
 type ImportDecl struct {
 	Module   ModuleName
 	Alias    *Ident
@@ -95,6 +111,7 @@ func (d *ImportDecl) End() token.Pos {
 }
 func (d *ImportDecl) isDecl() {}
 
+// Ident represents an identifier, which is a name for something.
 type Ident struct {
 	NamePos *token.Position
 	Name    string
@@ -121,23 +138,34 @@ const (
 	Op
 )
 
+// BasicLit represents a basic literal.
 type BasicLit struct {
 	Pos   *token.Position
 	Type  BasicLitType
 	Value string
 }
 
+// BasicLitType is the type of a literal.
 type BasicLitType byte
 
 const (
+	// Error is an invalid literal.
 	Error BasicLitType = iota
+	// Int is an integer literal.
 	Int
+	// Float is a floating point number literal.
 	Float
+	// String is a string literal.
 	String
+	// Bool is a boolean literal.
 	Bool
+	// Char is a character literal.
 	Char
 )
 
+// InfixDecl is a node representing the declaration of an operator's fixity.
+// It contains the operator, the priority given and the associativity of the
+// operator.
 type InfixDecl struct {
 	InfixPos token.Pos
 	Assoc    Associativity
@@ -145,11 +173,15 @@ type InfixDecl struct {
 	Priority *BasicLit
 }
 
+// Associativity of the operator.
 type Associativity byte
 
 const (
+	// NonAssoc is a non associative operator.
 	NonAssoc Associativity = iota
+	// LeftAssoc is a left associative operator.
 	LeftAssoc
+	// RightAssoc is a right associative operator.
 	RightAssoc
 )
 
@@ -157,6 +189,8 @@ func (InfixDecl) isDecl()          {}
 func (d InfixDecl) Pos() token.Pos { return d.InfixPos }
 func (d InfixDecl) End() token.Pos { return d.Op.End() }
 
+// AliasDecl is a node representing a type alias declaration. It contains
+// the name of the alias and its arguments along with the type it is aliasing.
 type AliasDecl struct {
 	TypePos token.Pos
 	Alias   token.Pos
@@ -170,6 +204,9 @@ func (d AliasDecl) isDecl()        {}
 func (d AliasDecl) Pos() token.Pos { return d.TypePos }
 func (d AliasDecl) End() token.Pos { return d.Type.Pos() }
 
+// UnionDecl is a node representing an union type declaration. Contains
+// the name of the union type, the arguments and all the constructors for
+// the type.
 type UnionDecl struct {
 	TypePos token.Pos
 	Eq      token.Pos
@@ -187,6 +224,8 @@ func (d UnionDecl) End() token.Pos {
 	return d.Types[len(d.Types)-1].End()
 }
 
+// Constructor is a node representing the constructor of an union type.
+// It contains the name of the constructor and its type arguments.
 type Constructor struct {
 	Name *Ident
 	Args []Type
@@ -206,11 +245,13 @@ func (c Constructor) End() token.Pos {
 	return c.Name.End()
 }
 
+// Type is a node representing a type.
 type Type interface {
 	Node
 	isType()
 }
 
+// BasicType is a type that has a name and 0 or more arguments.
 type BasicType struct {
 	Name *Ident
 	Args []Type
@@ -235,6 +276,7 @@ func (FuncType) isType()          {}
 func (t FuncType) Pos() token.Pos { return t.Args[0].Pos() }
 func (t FuncType) End() token.Pos { return t.Return.End() }
 
+// RecordType is a node representing a record type.
 type RecordType struct {
 	Lbrace token.Pos
 	Rbrace token.Pos
@@ -245,6 +287,7 @@ func (RecordType) isType()          {}
 func (t RecordType) Pos() token.Pos { return t.Lbrace }
 func (t RecordType) End() token.Pos { return t.Rbrace }
 
+// RecordTypeField represents a field in a record type node.
 type RecordTypeField struct {
 	Name  *Ident
 	Type  Type
@@ -252,6 +295,7 @@ type RecordTypeField struct {
 	Comma token.Pos
 }
 
+// TupleType is a node representing a tuple with two ore more types.
 type TupleType struct {
 	Lparen token.Pos
 	Rparen token.Pos
