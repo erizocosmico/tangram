@@ -229,6 +229,26 @@ const inputAliasTupleParens = `
 type alias Point = (((Int), (Int)))
 `
 
+const inputAliasFunc = `
+type alias PointMaker = Int -> Int -> Point
+`
+
+const inputAliasFuncNested = `
+type alias Foo = (Int -> Int -> String) -> Int -> Float
+`
+
+const inputAliasFuncArgs = `
+type alias Foo a b = (a -> a -> b) -> a -> b
+`
+
+const inputAliasFuncTuple = `
+type alias Foo = (Int -> Int, Float -> Float)
+`
+
+const inputAliasFuncRecord = `
+type alias Foo = {x: Int, y: Int} -> {fn: Int -> Int -> Point} -> Point
+`
+
 func TestParseTypeAlias(t *testing.T) {
 	cases := []struct {
 		input  string
@@ -362,6 +382,91 @@ func TestParseTypeAlias(t *testing.T) {
 				assertTuple(
 					assertBasicType("Int"),
 					assertBasicType("Int"),
+				),
+			),
+		},
+		{
+			inputAliasFunc,
+			assertAlias(
+				assertName("PointMaker"),
+				assertNoArgs,
+				assertFuncType(
+					assertBasicType("Int"),
+					assertBasicType("Int"),
+					assertBasicType("Point"),
+				),
+			),
+		},
+		{
+			inputAliasFuncNested,
+			assertAlias(
+				assertName("Foo"),
+				assertNoArgs,
+				assertFuncType(
+					assertFuncType(
+						assertBasicType("Int"),
+						assertBasicType("Int"),
+						assertBasicType("String"),
+					),
+					assertBasicType("Int"),
+					assertBasicType("Float"),
+				),
+			),
+		},
+		{
+			inputAliasFuncArgs,
+			assertAlias(
+				assertName("Foo"),
+				assertArgs("a", "b"),
+				assertFuncType(
+					assertFuncType(
+						assertBasicType("a"),
+						assertBasicType("a"),
+						assertBasicType("b"),
+					),
+					assertBasicType("a"),
+					assertBasicType("b"),
+				),
+			),
+		},
+		{
+			inputAliasFuncTuple,
+			assertAlias(
+				assertName("Foo"),
+				assertNoArgs,
+				assertTuple(
+					assertFuncType(
+						assertBasicType("Int"),
+						assertBasicType("Int"),
+					),
+					assertFuncType(
+						assertBasicType("Float"),
+						assertBasicType("Float"),
+					),
+				),
+			),
+		},
+		{
+			inputAliasFuncRecord,
+			assertAlias(
+				assertName("Foo"),
+				assertNoArgs,
+				assertFuncType(
+					assertRecord(
+						assertBasicRecordField("x", "Int"),
+						assertBasicRecordField("y", "Int"),
+					),
+					assertRecord(
+						assertRecordField(
+							"fn",
+							assertFuncType(
+								assertBasicType("Int"),
+								assertBasicType("Int"),
+								assertBasicType("Point"),
+							),
+						),
+					),
+					assertBasicType("Point"),
 				),
 			),
 		},

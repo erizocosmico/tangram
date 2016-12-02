@@ -370,7 +370,30 @@ func (p *parser) parseTypeList() (types []ast.Type) {
 	return
 }
 
+// parseType parses a complete type, whether it is a function type or an atom
+// type.
 func (p *parser) parseType() ast.Type {
+	t := p.parseAtomType()
+	if !p.is(token.Arrow) {
+		return t
+	}
+
+	types := []ast.Type{t}
+	for p.is(token.Arrow) {
+		p.expect(token.Arrow)
+		types = append(types, p.parseAtomType())
+	}
+
+	size := len(types)
+	return &ast.FuncType{
+		Args:   types[:size-1],
+		Return: types[size-1],
+	}
+}
+
+// parseAtomType parses a type that can make sense on their own, that is,
+// a tuple, a record or a basic type.
+func (p *parser) parseAtomType() ast.Type {
 	switch p.tok.Type {
 	case token.LeftParen:
 		lparenPos := p.expect(token.LeftParen)

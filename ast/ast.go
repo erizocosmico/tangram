@@ -226,6 +226,15 @@ func (t BasicType) End() token.Pos {
 	return t.Name.End()
 }
 
+type FuncType struct {
+	Args   []Type
+	Return Type
+}
+
+func (FuncType) isType()          {}
+func (t FuncType) Pos() token.Pos { return t.Args[0].Pos() }
+func (t FuncType) End() token.Pos { return t.Return.End() }
+
 type RecordType struct {
 	Lbrace token.Pos
 	Rbrace token.Pos

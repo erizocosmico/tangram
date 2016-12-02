@@ -119,7 +119,7 @@ func printUnionDecl(decl *ast.UnionDecl) {
 		printIndent(2)
 		fmt.Println("- Args:")
 		for _, a := range decl.Args {
-			printIndent(2)
+			printIndent(3)
 			fmt.Println("-", a.Name)
 		}
 	}
@@ -145,6 +145,8 @@ func printType(indent int, typ ast.Type) {
 		printTuple(indent, t)
 	case *ast.RecordType:
 		printRecord(indent, t)
+	case *ast.FuncType:
+		printFuncType(indent, t)
 	case *ast.BasicType:
 		printBasicType(indent, t)
 	}
@@ -172,9 +174,24 @@ func printRecordField(indent int, f *ast.RecordTypeField) {
 	printType(indent+1, f.Type)
 }
 
+func printFuncType(indent int, f *ast.FuncType) {
+	printIndent(indent)
+	color.Yellow("- Function:")
+
+	printIndent(indent + 1)
+	fmt.Println("- Args:")
+	for _, a := range f.Args {
+		printType(indent+2, a)
+	}
+
+	printIndent(indent + 1)
+	fmt.Println("- Return:")
+	printType(indent+2, f.Return)
+}
+
 func printBasicType(indent int, t *ast.BasicType) {
 	printIndent(indent)
-	fmt.Println(t.Name.Name)
+	fmt.Println("-", t.Name.Name)
 	for _, a := range t.Args {
 		printType(indent, a)
 	}

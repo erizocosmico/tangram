@@ -87,6 +87,20 @@ func assertTuple(types ...typeAssert) typeAssert {
 	}
 }
 
+func assertFuncType(elems ...typeAssert) typeAssert {
+	return func(t *testing.T, typ ast.Type) {
+		fn, ok := typ.(*ast.FuncType)
+		require.True(t, ok, "type is not a function")
+
+		require.Equal(t, len(elems), len(fn.Args)+1, "invalid number of elements in function signature")
+		for i := range fn.Args {
+			elems[i](t, fn.Args[i])
+		}
+
+		elems[len(elems)-1](t, fn.Return)
+	}
+}
+
 func assertBasicType(name string, args ...typeAssert) typeAssert {
 	return func(t *testing.T, typ ast.Type) {
 		basic, ok := typ.(*ast.BasicType)
