@@ -1,6 +1,6 @@
 # elmo [![Build Status](https://travis-ci.org/mvader/elmo.svg?branch=master)](https://travis-ci.org/mvader/elmo) [![Test Coverage](https://codecov.io/github/mvader/elmo/coverage.svg?branch=master)](https://codecov.io/gh/mvader/elmo/branch/master) [![Go Report Card](https://goreportcard.com/badge/github.com/mvader/elmo)](https://goreportcard.com/report/github.com/mvader/elmo)
 
-**elm(g)o** is a compiler to make the Elm language a general purpose language rather than a frontend-based one. For that, it compiles to the Go language, which enables a interop with it and the usage of its ecosystem.
+**elm(g)o** is a compiler to bring the Elm language to more places other than the frontend. For that, it compiles to the Go language, which enables a interop with it and the usage of its ecosystem.
 
 **NOTE:** For now, this is just a toy project and highly experimental.
 
