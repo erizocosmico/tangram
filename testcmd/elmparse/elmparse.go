@@ -7,8 +7,8 @@ import (
 	"reflect"
 
 	"github.com/fatih/color"
-	"github.com/mvader/elmo/ast"
-	"github.com/mvader/elmo/parser"
+	"github.com/erizocosmico/elmo/ast"
+	"github.com/erizocosmico/elmo/parser"
 )
 
 var help = flag.Bool("help", false, "display help")

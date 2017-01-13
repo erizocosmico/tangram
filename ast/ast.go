@@ -3,7 +3,7 @@ package ast
 import (
 	"strings"
 
-	"github.com/mvader/elmo/token"
+	"github.com/erizocosmico/elmo/token"
 )
 
 // File is the AST representation of a source code file.
@@ -62,6 +62,10 @@ type ExposedIdent struct {
 	Exposing *ExposingList
 }
 
+func NewExposedIdent(ident *Ident) *ExposedIdent {
+	return &ExposedIdent{Ident: ident}
+}
+
 func (i *ExposedIdent) Pos() token.Pos { return i.Pos() }
 func (i *ExposedIdent) End() token.Pos { return i.Exposing.End() }
 
@@ -118,6 +122,10 @@ type Ident struct {
 	Obj     *Object
 }
 
+func NewIdent(name string, pos *token.Position) *Ident {
+	return &Ident{pos, name, nil}
+}
+
 func (i *Ident) Pos() token.Pos { return i.NamePos.Offset }
 func (i *Ident) End() token.Pos { return i.Pos() + token.Pos(len(i.Name)) }
 
@@ -140,10 +148,14 @@ const (
 
 // BasicLit represents a basic literal.
 type BasicLit struct {
-	Pos   *token.Position
-	Type  BasicLitType
-	Value string
+	Position *token.Position
+	Type     BasicLitType
+	Value    string
 }
+
+func (b *BasicLit) Pos() token.Pos { return b.Position.Offset }
+func (b *BasicLit) End() token.Pos { return b.Pos() + token.Pos(len(b.Value)) }
+func (*BasicLit) isExpr()          {}
 
 // BasicLitType is the type of a literal.
 type BasicLitType byte
@@ -305,3 +317,36 @@ type TupleType struct {
 func (TupleType) isType()          {}
 func (t TupleType) Pos() token.Pos { return t.Lparen }
 func (t TupleType) End() token.Pos { return t.Rparen }
+
+// Definition is a node representing a definition of a value. A definition can
+// also be annotated with a type annotation.
+type Definition struct {
+	Annotation *TypeAnnotation
+	Name       *Ident
+	Assign     token.Pos
+	Args       []*Ident
+	Body       Expr
+}
+
+func (*Definition) isDecl() {}
+func (d *Definition) Pos() token.Pos {
+	if d.Annotation != nil {
+		return d.Annotation.Name.Pos()
+	}
+
+	return d.Name.Pos()
+}
+func (d *Definition) End() token.Pos { return d.Body.End() }
+
+// TypeAnnotation is the annotation of a declaration with its type.
+type TypeAnnotation struct {
+	Name  *Ident
+	Colon token.Pos
+	Type  Type
+}
+
+// Expr is an expression node.
+type Expr interface {
+	Node
+	isExpr()
+}

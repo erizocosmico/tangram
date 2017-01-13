@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mvader/elmo/ast"
-	"github.com/mvader/elmo/scanner"
+	"github.com/erizocosmico/elmo/ast"
+	"github.com/erizocosmico/elmo/scanner"
 	"github.com/stretchr/testify/require"
 )
 
@@ -256,217 +256,217 @@ func TestParseTypeAlias(t *testing.T) {
 	}{
 		{
 			inputAliasSimpleType,
-			assertAlias(
-				assertName("Foo"),
-				assertNoArgs,
-				assertBasicType("Int"),
+			Alias(
+				"Foo",
+				nil,
+				BasicType("Int"),
 			),
 		},
 		{
 			inputAliasParenBasicType,
-			assertAlias(
-				assertName("Foo"),
-				assertNoArgs,
-				assertBasicType("Int"),
+			Alias(
+				"Foo",
+				nil,
+				BasicType("Int"),
 			),
 		},
 		{
 			inputAliasBasicTypeArg,
-			assertAlias(
-				assertName("Foo"),
-				assertArgs("a"),
-				assertBasicType(
+			Alias(
+				"Foo",
+				[]string{"a"},
+				BasicType(
 					"List",
-					assertBasicType("a"),
+					BasicType("a"),
 				),
 			),
 		},
 		{
 			inputAliasBasicTypeArgs,
-			assertAlias(
-				assertName("Foo"),
-				assertArgs("a", "b"),
-				assertBasicType(
+			Alias(
+				"Foo",
+				[]string{"a", "b"},
+				BasicType(
 					"HashMap",
-					assertBasicType("a"),
-					assertBasicType("b"),
+					BasicType("a"),
+					BasicType("b"),
 				),
 			),
 		},
 		{
 			inputAliasRecord,
-			assertAlias(
-				assertName("Point"),
-				assertNoArgs,
-				assertRecord(
-					assertBasicRecordField("x", "Int"),
-					assertBasicRecordField("y", "Int"),
+			Alias(
+				"Point",
+				nil,
+				Record(
+					BasicRecordField("x", "Int"),
+					BasicRecordField("y", "Int"),
 				),
 			),
 		},
 		{
 			inputAliasRecordNoFields,
-			assertAlias(
-				assertName("Nothing"),
-				assertNoArgs,
-				assertRecord(),
+			Alias(
+				"Nothing",
+				nil,
+				Record(),
 			),
 		},
 		{
 			inputAliasRecord1Field,
-			assertAlias(
-				assertName("X"),
-				assertNoArgs,
-				assertRecord(
-					assertBasicRecordField("x", "Int"),
+			Alias(
+				"X",
+				nil,
+				Record(
+					BasicRecordField("x", "Int"),
 				),
 			),
 		},
 		{
 			inputAliasRecordNested,
-			assertAlias(
-				assertName("Foo"),
-				assertNoArgs,
-				assertRecord(
-					assertRecordField(
+			Alias(
+				"Foo",
+				nil,
+				Record(
+					RecordField(
 						"x",
-						assertRecord(
-							assertBasicRecordField("x1", "Int"),
-							assertBasicRecordField("x2", "Int"),
+						Record(
+							BasicRecordField("x1", "Int"),
+							BasicRecordField("x2", "Int"),
 						),
 					),
-					assertBasicRecordField("y", "Int"),
+					BasicRecordField("y", "Int"),
 				),
 			),
 		},
 		{
 			inputAliasRecordArgs,
-			assertAlias(
-				assertName("Foo"),
-				assertArgs("a"),
-				assertRecord(
-					assertRecordField(
+			Alias(
+				"Foo",
+				[]string{"a"},
+				Record(
+					RecordField(
 						"x",
-						assertBasicType("List", assertBasicType("a")),
+						BasicType("List", BasicType("a")),
 					),
 				),
 			),
 		},
 		{
 			inputAliasTuple,
-			assertAlias(
-				assertName("Point"),
-				assertNoArgs,
-				assertTuple(
-					assertBasicType("Int"),
-					assertBasicType("Int"),
+			Alias(
+				"Point",
+				nil,
+				Tuple(
+					BasicType("Int"),
+					BasicType("Int"),
 				),
 			),
 		},
 		{
 			inputAliasTupleArgs,
-			assertAlias(
-				assertName("Foo"),
-				assertArgs("a", "b"),
-				assertTuple(
-					assertBasicType("a"),
-					assertBasicType("b"),
+			Alias(
+				"Foo",
+				[]string{"a", "b"},
+				Tuple(
+					BasicType("a"),
+					BasicType("b"),
 				),
 			),
 		},
 		{
 			inputAliasTupleParens,
-			assertAlias(
-				assertName("Point"),
-				assertNoArgs,
-				assertTuple(
-					assertBasicType("Int"),
-					assertBasicType("Int"),
+			Alias(
+				"Point",
+				nil,
+				Tuple(
+					BasicType("Int"),
+					BasicType("Int"),
 				),
 			),
 		},
 		{
 			inputAliasFunc,
-			assertAlias(
-				assertName("PointMaker"),
-				assertNoArgs,
-				assertFuncType(
-					assertBasicType("Int"),
-					assertBasicType("Int"),
-					assertBasicType("Point"),
+			Alias(
+				"PointMaker",
+				nil,
+				FuncType(
+					BasicType("Int"),
+					BasicType("Int"),
+					BasicType("Point"),
 				),
 			),
 		},
 		{
 			inputAliasFuncNested,
-			assertAlias(
-				assertName("Foo"),
-				assertNoArgs,
-				assertFuncType(
-					assertFuncType(
-						assertBasicType("Int"),
-						assertBasicType("Int"),
-						assertBasicType("String"),
+			Alias(
+				"Foo",
+				nil,
+				FuncType(
+					FuncType(
+						BasicType("Int"),
+						BasicType("Int"),
+						BasicType("String"),
 					),
-					assertBasicType("Int"),
-					assertBasicType("Float"),
+					BasicType("Int"),
+					BasicType("Float"),
 				),
 			),
 		},
 		{
 			inputAliasFuncArgs,
-			assertAlias(
-				assertName("Foo"),
-				assertArgs("a", "b"),
-				assertFuncType(
-					assertFuncType(
-						assertBasicType("a"),
-						assertBasicType("a"),
-						assertBasicType("b"),
+			Alias(
+				"Foo",
+				[]string{"a", "b"},
+				FuncType(
+					FuncType(
+						BasicType("a"),
+						BasicType("a"),
+						BasicType("b"),
 					),
-					assertBasicType("a"),
-					assertBasicType("b"),
+					BasicType("a"),
+					BasicType("b"),
 				),
 			),
 		},
 		{
 			inputAliasFuncTuple,
-			assertAlias(
-				assertName("Foo"),
-				assertNoArgs,
-				assertTuple(
-					assertFuncType(
-						assertBasicType("Int"),
-						assertBasicType("Int"),
+			Alias(
+				"Foo",
+				nil,
+				Tuple(
+					FuncType(
+						BasicType("Int"),
+						BasicType("Int"),
 					),
-					assertFuncType(
-						assertBasicType("Float"),
-						assertBasicType("Float"),
+					FuncType(
+						BasicType("Float"),
+						BasicType("Float"),
 					),
 				),
 			),
 		},
 		{
 			inputAliasFuncRecord,
-			assertAlias(
-				assertName("Foo"),
-				assertNoArgs,
-				assertFuncType(
-					assertRecord(
-						assertBasicRecordField("x", "Int"),
-						assertBasicRecordField("y", "Int"),
+			Alias(
+				"Foo",
+				nil,
+				FuncType(
+					Record(
+						BasicRecordField("x", "Int"),
+						BasicRecordField("y", "Int"),
 					),
-					assertRecord(
-						assertRecordField(
+					Record(
+						RecordField(
 							"fn",
-							assertFuncType(
-								assertBasicType("Int"),
-								assertBasicType("Int"),
-								assertBasicType("Point"),
+							FuncType(
+								BasicType("Int"),
+								BasicType("Int"),
+								BasicType("Point"),
 							),
 						),
 					),
-					assertBasicType("Point"),
+					BasicType("Point"),
 				),
 			),
 		},
@@ -505,53 +505,53 @@ func TestParseTypeUnion(t *testing.T) {
 	}{
 		{
 			inputUnionOne,
-			assertUnion(
-				assertName("Foo"),
-				assertNoArgs,
-				assertConstructor("A"),
+			Union(
+				"Foo",
+				nil,
+				Constructor("A"),
 			),
 		},
 		{
 			inputUnionNames,
-			assertUnion(
-				assertName("Cmp"),
-				assertNoArgs,
-				assertConstructor("Lt"),
-				assertConstructor("Eq"),
-				assertConstructor("Gt"),
+			Union(
+				"Cmp",
+				nil,
+				Constructor("Lt"),
+				Constructor("Eq"),
+				Constructor("Gt"),
 			),
 		},
 		{
 			inputUnionArgs,
-			assertUnion(
-				assertName("Cmp"),
-				assertArgs("a"),
-				assertConstructor("Lt", assertBasicType("a")),
-				assertConstructor("Eq", assertBasicType("a")),
-				assertConstructor("Gt", assertBasicType("a")),
+			Union(
+				"Cmp",
+				[]string{"a"},
+				Constructor("Lt", BasicType("a")),
+				Constructor("Eq", BasicType("a")),
+				Constructor("Gt", BasicType("a")),
 			),
 		},
 		{
 			inputUnionRecords,
-			assertUnion(
-				assertName("Foo"),
-				assertArgs("a", "b"),
-				assertConstructor(
+			Union(
+				"Foo",
+				[]string{"a", "b"},
+				Constructor(
 					"A",
-					assertRecord(
-						assertBasicRecordField("a", "a"),
+					Record(
+						BasicRecordField("a", "a"),
 					),
 				),
-				assertConstructor(
+				Constructor(
 					"B",
-					assertRecord(
-						assertBasicRecordField("b", "b"),
-						assertBasicRecordField("c", "String"),
+					Record(
+						BasicRecordField("b", "b"),
+						BasicRecordField("c", "String"),
 					),
 				),
-				assertConstructor(
+				Constructor(
 					"C",
-					assertBasicType("List", assertBasicType("Int")),
+					BasicType("List", BasicType("Int")),
 				),
 			),
 		},
@@ -563,6 +563,54 @@ func TestParseTypeUnion(t *testing.T) {
 
 			p := stringParser(c.input)
 			c.assert(t, p.parseTypeDecl())
+		}()
+	}
+}
+
+const (
+	inputLiteral    = `foo = 5`
+	inputLiteralAnn = `foo : Int
+foo = 5`
+	inputOperator    = `(::) a b = 5`
+	inputOperatorAnn = `(::) : Int -> Int -> Int
+(::) a b = 5`
+)
+
+func TestParseDefinition(t *testing.T) {
+	cases := []struct {
+		input  string
+		assert declAssert
+	}{
+		{
+			inputLiteral,
+			Definition("foo", nil, nil, Literal(ast.Int, "5")),
+		},
+		{
+			inputLiteralAnn,
+			Definition(
+				"foo",
+				TypeAnnotation(BasicType("Int")),
+				nil,
+				Literal(ast.Int, "5"),
+			),
+		},
+		{
+			inputOperator,
+			Definition(
+				"::",
+				nil,
+				[]string{"a", "b"},
+				Literal(ast.Int, "5"),
+			),
+		},
+	}
+
+	for _, c := range cases {
+		func() {
+			defer assertEOF(t, "", false)
+
+			p := stringParser(c.input)
+			c.assert(t, p.parseDefinition())
 		}()
 	}
 }

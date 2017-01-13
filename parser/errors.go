@@ -7,7 +7,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/fatih/color"
-	"github.com/mvader/elmo/token"
+	"github.com/erizocosmico/elmo/token"
 )
 
 type parseError struct {
