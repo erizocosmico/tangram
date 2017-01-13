@@ -62,6 +62,10 @@ type ExposedIdent struct {
 	Exposing *ExposingList
 }
 
+func NewExposedIdent(ident *Ident) *ExposedIdent {
+	return &ExposedIdent{Ident: ident}
+}
+
 func (i *ExposedIdent) Pos() token.Pos { return i.Pos() }
 func (i *ExposedIdent) End() token.Pos { return i.Exposing.End() }
 
@@ -116,6 +120,10 @@ type Ident struct {
 	NamePos *token.Position
 	Name    string
 	Obj     *Object
+}
+
+func NewIdent(name string, pos *token.Position) *Ident {
+	return &Ident{pos, name, nil}
 }
 
 func (i *Ident) Pos() token.Pos { return i.NamePos.Offset }
