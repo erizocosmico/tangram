@@ -524,7 +524,6 @@ func (p *parser) parseDefinition() ast.Decl {
 
 func (p *parser) parseExpr() ast.Expr {
 	switch p.tok.Type {
-	case token.Identifier:
 	case token.Int, token.Char, token.String, token.True, token.False:
 		return p.parseLiteral()
 	}

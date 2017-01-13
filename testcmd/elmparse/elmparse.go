@@ -6,9 +6,9 @@ import (
 	"os"
 	"reflect"
 
-	"github.com/fatih/color"
 	"github.com/erizocosmico/elmo/ast"
 	"github.com/erizocosmico/elmo/parser"
+	"github.com/fatih/color"
 )
 
 var help = flag.Bool("help", false, "display help")
@@ -90,6 +90,8 @@ func printDecl(decl ast.Decl) {
 		printAliasDecl(d)
 	case *ast.UnionDecl:
 		printUnionDecl(d)
+	case *ast.Definition:
+		printDef(d)
 	default:
 		fmt.Println("Not implemented decl printer of type:", reflect.TypeOf(d))
 	}
@@ -102,7 +104,7 @@ func printAliasDecl(decl *ast.AliasDecl) {
 		printIndent(2)
 		fmt.Println("- Args:")
 		for _, a := range decl.Args {
-			printIndent(2)
+			printIndent(3)
 			fmt.Println("-", a.Name)
 		}
 	}
@@ -214,6 +216,42 @@ func printInfixDecl(decl *ast.InfixDecl) {
 	fmt.Println("- Operator:", decl.Op.Name)
 	printIndent(2)
 	fmt.Println("- Priority:", decl.Priority.Value)
+}
+
+func printDef(def *ast.Definition) {
+	printIndent(1)
+	fmt.Println(color.YellowString("Definition:"), def.Name.Name)
+	printIndent(2)
+	if def.Annotation == nil {
+		fmt.Println("- No type annotation")
+	} else {
+		fmt.Println("- Type annotation:")
+		printType(3, def.Annotation.Type)
+	}
+
+	if len(def.Args) > 0 {
+		printIndent(2)
+		fmt.Println("- Arguments:")
+		for _, arg := range def.Args {
+			printIndent(3)
+			fmt.Println("-", arg.Name)
+		}
+	}
+
+	printIndent(2)
+	fmt.Println("- Body:")
+	printExpr(3, def.Body)
+}
+
+func printExpr(indent int, expr ast.Expr) {
+	printIndent(indent)
+
+	switch e := expr.(type) {
+	case *ast.BasicLit:
+		fmt.Println("- Basic Literal:", e.Type, e.Value)
+	default:
+		fmt.Println(reflect.TypeOf(expr), "is not supported")
+	}
 }
 
 const helpText = `Display a parsed AST

@@ -175,6 +175,23 @@ const (
 	Char
 )
 
+func (t BasicLitType) String() string {
+	switch t {
+	case Int:
+		return "int"
+	case Float:
+		return "float"
+	case String:
+		return "string"
+	case Bool:
+		return "bool"
+	case Char:
+		return "char"
+	default:
+		return "error"
+	}
+}
+
 // InfixDecl is a node representing the declaration of an operator's fixity.
 // It contains the operator, the priority given and the associativity of the
 // operator.
