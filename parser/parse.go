@@ -5,9 +5,9 @@ import (
 	"strconv"
 	"unicode"
 
-	"github.com/mvader/elmo/ast"
-	"github.com/mvader/elmo/scanner"
-	"github.com/mvader/elmo/token"
+	"github.com/erizocosmico/elmo/ast"
+	"github.com/erizocosmico/elmo/scanner"
+	"github.com/erizocosmico/elmo/token"
 )
 
 type parser struct {

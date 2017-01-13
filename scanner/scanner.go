@@ -8,7 +8,7 @@ import (
 	"sync"
 	"unicode"
 
-	"github.com/mvader/elmo/token"
+	"github.com/erizocosmico/elmo/token"
 )
 
 type stateFunc func(*Scanner) (stateFunc, error)

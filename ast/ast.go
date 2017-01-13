@@ -3,7 +3,7 @@ package ast
 import (
 	"strings"
 
-	"github.com/mvader/elmo/token"
+	"github.com/erizocosmico/elmo/token"
 )
 
 // File is the AST representation of a source code file.
