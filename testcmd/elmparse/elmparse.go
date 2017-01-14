@@ -233,8 +233,7 @@ func printDef(def *ast.Definition) {
 		printIndent(2)
 		fmt.Println("- Arguments:")
 		for _, arg := range def.Args {
-			printIndent(3)
-			fmt.Println("-", arg.Name)
+			printPattern(3, arg)
 		}
 	}
 
@@ -251,6 +250,41 @@ func printExpr(indent int, expr ast.Expr) {
 		fmt.Println("- Basic Literal:", e.Type, e.Value)
 	default:
 		fmt.Println(reflect.TypeOf(expr), "is not supported")
+	}
+}
+
+func printPattern(indent int, pattern ast.Pattern) {
+	printIndent(indent)
+	switch pat := pattern.(type) {
+	case *ast.VarPattern:
+		fmt.Println("- Var:", pat.Name.Name)
+	case *ast.AnythingPattern:
+		fmt.Println("- Anything")
+	case *ast.CtorPattern:
+		fmt.Println("- Ctor:")
+		for _, p := range pat.Patterns {
+			printPattern(indent+1, p)
+		}
+	case *ast.TuplePattern:
+		fmt.Println("- Tuple:")
+		for _, p := range pat.Patterns {
+			printPattern(indent+1, p)
+		}
+	case *ast.RecordPattern:
+		fmt.Println("- Record:")
+		for _, p := range pat.Patterns {
+			printPattern(indent+1, p)
+		}
+	case *ast.AliasPattern:
+		fmt.Println("- Alias:", pat.Name.Name)
+		printPattern(indent+1, pat.Pattern)
+	case *ast.ListPattern:
+		fmt.Println("- List:")
+		for _, p := range pat.Patterns {
+			printPattern(indent+1, p)
+		}
+	default:
+		fmt.Println(reflect.TypeOf(pattern), "is not a valid pattern")
 	}
 }
 

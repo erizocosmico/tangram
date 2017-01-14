@@ -341,7 +341,7 @@ type Definition struct {
 	Annotation *TypeAnnotation
 	Name       *Ident
 	Assign     token.Pos
-	Args       []*Ident
+	Args       []ArgPattern
 	Body       Expr
 }
 

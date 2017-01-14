@@ -14,21 +14,22 @@ type (
 	declAssert        func(*testing.T, ast.Decl)
 	annotationAssert  func(*testing.T, string, *ast.TypeAnnotation)
 	exprAssert        func(*testing.T, ast.Expr)
+	patternAssert     func(*testing.T, ast.Pattern)
 )
 
 func Definition(
 	name string,
 	annAssert annotationAssert,
-	args []string,
+	patterns []patternAssert,
 	exprAssert exprAssert,
 ) declAssert {
 	return func(t *testing.T, decl ast.Decl) {
 		def, ok := decl.(*ast.Definition)
 		require.True(t, ok, "expected a definition decl")
 		require.Equal(t, name, def.Name.Name)
-		require.Equal(t, len(args), len(def.Args), "expected same number of arguments")
-		for i := range args {
-			require.Equal(t, args[i], def.Args[i].Name, "expected same argument #%d", i)
+		require.Equal(t, len(patterns), len(def.Args), "expected same number of arguments")
+		for i := range patterns {
+			patterns[i](t, def.Args[i])
 		}
 
 		if annAssert != nil {
@@ -163,6 +164,89 @@ func Literal(kind ast.BasicLitType, val string) exprAssert {
 		require.Equal(t, kind, lit.Type)
 		require.Equal(t, val, lit.Value)
 	}
+}
+
+func AliasPattern(underlying patternAssert, name string) patternAssert {
+	return func(t *testing.T, pattern ast.Pattern) {
+		alias, ok := pattern.(*ast.AliasPattern)
+		require.True(t, ok, "expected an alias pattern")
+		require.Equal(t, name, alias.Name.Name, "alias name")
+		underlying(t, alias.Pattern)
+	}
+}
+
+func AnythingPattern(t *testing.T, pattern ast.Pattern) {
+	_, ok := pattern.(*ast.AnythingPattern)
+	require.True(t, ok, "expected an anything pattern")
+}
+
+func TuplePattern(elems ...patternAssert) patternAssert {
+	return func(t *testing.T, pattern ast.Pattern) {
+		tuple, ok := pattern.(*ast.TuplePattern)
+		require.True(t, ok, "expected a tuple pattern")
+		require.Equal(t, len(elems), len(tuple.Patterns), "expecting same number of tuple pattern elements")
+
+		for i := range elems {
+			elems[i](t, tuple.Patterns[i])
+		}
+	}
+}
+
+func ListPattern(elems ...patternAssert) patternAssert {
+	return func(t *testing.T, pattern ast.Pattern) {
+		list, ok := pattern.(*ast.ListPattern)
+		require.True(t, ok, "expected a list pattern")
+		require.Equal(t, len(elems), len(list.Patterns), "expecting same number of list pattern elements")
+
+		for i := range elems {
+			elems[i](t, list.Patterns[i])
+		}
+	}
+}
+
+func RecordPattern(elems ...patternAssert) patternAssert {
+	return func(t *testing.T, pattern ast.Pattern) {
+		r, ok := pattern.(*ast.RecordPattern)
+		require.True(t, ok, "expected a record pattern")
+		require.Equal(t, len(elems), len(r.Patterns), "expecting same number of record pattern elements")
+
+		for i := range elems {
+			elems[i](t, r.Patterns[i])
+		}
+	}
+}
+
+func VarPattern(name string) patternAssert {
+	return func(t *testing.T, pattern ast.Pattern) {
+		v, ok := pattern.(*ast.VarPattern)
+		require.True(t, ok, "expected a var pattern")
+		require.Equal(t, name, v.Name.Name, "expecting same var name")
+	}
+}
+
+func LiteralPattern(typ ast.BasicLitType, val string) patternAssert {
+	return func(t *testing.T, pattern ast.Pattern) {
+		l, ok := pattern.(*ast.LiteralPattern)
+		require.True(t, ok, "expected a literal pattern")
+		require.Equal(t, typ, l.Literal.Type, "expected same kind of literal")
+		require.Equal(t, val, l.Literal.Value, "expected same value of literal")
+	}
+}
+
+func CtorPattern(name string, elems ...patternAssert) patternAssert {
+	return func(t *testing.T, pattern ast.Pattern) {
+		ctor, ok := pattern.(*ast.CtorPattern)
+		require.True(t, ok, "expected a constructor pattern")
+		require.Equal(t, len(elems), len(ctor.Patterns), "expecting same number of constructor pattern elements")
+
+		for i := range elems {
+			elems[i](t, ctor.Patterns[i])
+		}
+	}
+}
+
+func Patterns(patterns ...patternAssert) []patternAssert {
+	return patterns
 }
 
 func assertIdent(t *testing.T, name string, ident *ast.Ident) {

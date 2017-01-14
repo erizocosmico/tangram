@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"unicode"
+	"unicode/utf8"
 
 	"github.com/erizocosmico/elmo/ast"
 	"github.com/erizocosmico/elmo/scanner"
@@ -512,14 +513,173 @@ func (p *parser) parseDefinition() ast.Decl {
 		decl.Name = name
 	}
 
-	for p.is(token.Identifier) {
-		// TODO: Implement patterns
-		decl.Args = append(decl.Args, p.parseLowerName())
+	for !p.is(token.Assign) {
+		tok := p.tok
+		// in arguments, we parse the patterns as non-greedy so it forces the
+		// developer to wrap around parenthesis the alias pattern
+		pattern := p.parsePattern(false)
+		arg, ok := pattern.(ast.ArgPattern)
+		if !ok {
+			p.errorMessage(
+				tok.Position,
+				"This pattern is not valid. Only tuple and record patterns are valid function arguments.",
+			)
+		}
+
+		decl.Args = append(decl.Args, arg)
 	}
 
 	decl.Assign = p.expect(token.Assign)
 	decl.Body = p.parseExpr()
 	return decl
+}
+
+// parsePattern parses the next pattern. If `greedy` is true, it will try to
+// find an alias at the end of the pattern, otherwise it will not.
+func (p *parser) parsePattern(greedy bool) (pat ast.Pattern) {
+	pat = &ast.VarPattern{Name: &ast.Ident{Name: "_"}}
+	switch p.tok.Type {
+	case token.Identifier:
+		if p.tok.Value == "_" {
+			pat = &ast.AnythingPattern{Underscore: p.expect(token.Identifier)}
+		} else {
+			r, _ := utf8.DecodeRuneInString(p.tok.Value)
+			if unicode.IsUpper(r) {
+				pat = p.parseCtorPattern()
+			} else {
+				pat = &ast.VarPattern{
+					Name: p.parseLowerName(),
+				}
+			}
+		}
+	case token.LeftBracket:
+		pat = p.parseListPattern()
+	case token.LeftParen:
+		pat = p.parseTupleOrParenthesizedPattern()
+	case token.LeftBrace:
+		pat = p.parseRecordPattern()
+	case token.Int, token.Char, token.String, token.Float:
+		pat = &ast.LiteralPattern{p.parseLiteral()}
+	case token.True, token.False:
+		p.expectOneOf(token.True, token.False)
+		pat = &ast.CtorPattern{Ctor: ast.NewIdent(p.tok.Value, p.tok.Position)}
+	default:
+		p.errorExpectedOneOf(p.tok, token.Identifier, token.LeftParen, token.LeftBrace, token.LeftBracket)
+	}
+
+	if p.is(token.As) && greedy {
+		return p.parseAliasPattern(pat)
+	}
+
+	if p.is(token.Op) && p.tok.Value == "::" {
+		return p.parseCtorListPattern(pat)
+	}
+
+	return
+}
+
+func (p *parser) parseListPattern() ast.Pattern {
+	lbracketPos := p.expect(token.LeftBracket)
+
+	if p.is(token.RightBracket) {
+		return &ast.ListPattern{
+			Lbracket: lbracketPos,
+			Rbracket: p.expect(token.RightBracket),
+		}
+	}
+
+	pat := &ast.ListPattern{Lbracket: lbracketPos}
+	pat.Patterns = []ast.Pattern{p.parsePattern(true)}
+	for !p.is(token.RightBracket) {
+		p.expect(token.Comma)
+		pat.Patterns = append(pat.Patterns, p.parsePattern(true))
+	}
+
+	pat.Rbracket = p.expect(token.RightBracket)
+	return pat
+}
+
+func (p *parser) parseCtorListPattern(pat ast.Pattern) ast.Pattern {
+	pos := p.tok.Position
+	p.expect(token.Op)
+	return &ast.CtorPattern{
+		Ctor: &ast.Ident{
+			Name:    "::",
+			NamePos: pos,
+		},
+		Patterns: []ast.Pattern{
+			pat,
+			p.parsePattern(false),
+		},
+	}
+}
+
+func (p *parser) parseTupleOrParenthesizedPattern() ast.Pattern {
+	lparenPos := p.expect(token.LeftParen)
+
+	var patterns []ast.Pattern
+	for !p.is(token.RightParen) {
+		patterns = append(patterns, p.parsePattern(true))
+
+		if !p.is(token.RightParen) {
+			p.expect(token.Comma)
+		}
+	}
+
+	rparenPos := p.expect(token.RightParen)
+	if len(patterns) > 1 {
+		return &ast.TuplePattern{
+			Lparen:   lparenPos,
+			Patterns: patterns,
+			Rparen:   rparenPos,
+		}
+	}
+	return patterns[0]
+}
+
+func (p *parser) parseRecordPattern() ast.Pattern {
+	lbracePos := p.expect(token.LeftBrace)
+
+	var patterns []ast.Pattern
+	for !p.is(token.RightBrace) {
+		patterns = append(patterns, p.parsePattern(true))
+
+		if !p.is(token.RightBrace) {
+			p.expect(token.Comma)
+		}
+	}
+
+	return &ast.RecordPattern{
+		Lbrace:   lbracePos,
+		Patterns: patterns,
+		Rbrace:   p.expect(token.RightBrace),
+	}
+}
+
+func (p *parser) parseCtorPattern() ast.Pattern {
+	pat := &ast.CtorPattern{Ctor: p.parseUpperName()}
+	var patterns []ast.Pattern
+
+Outer:
+	for {
+		switch p.tok.Type {
+		case token.Identifier, token.LeftParen, token.LeftBracket, token.LeftBrace, token.True, token.False, token.Int, token.Char, token.Float:
+			patterns = append(patterns, p.parsePattern(false))
+		default:
+			break Outer
+		}
+	}
+
+	pat.Patterns = patterns
+	return pat
+}
+
+func (p *parser) parseAliasPattern(pat ast.Pattern) ast.Pattern {
+	p.expect(token.As)
+	return &ast.AliasPattern{
+		Name:    p.parseLowerName(),
+		Pattern: pat,
+	}
 }
 
 func (p *parser) parseExpr() ast.Expr {
