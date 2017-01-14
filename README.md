@@ -1,4 +1,4 @@
-# elmo [![Build Status](https://travis-ci.org/mvader/elmo.svg?branch=master)](https://travis-ci.org/mvader/elmo) [![Test Coverage](https://codecov.io/github/mvader/elmo/coverage.svg?branch=master)](https://codecov.io/gh/mvader/elmo/branch/master) [![Go Report Card](https://goreportcard.com/badge/github.com/erizocosmico/elmo)](https://goreportcard.com/report/github.com/erizocosmico/elmo)
+# elmo [![Build Status](https://travis-ci.org/erizocosmico/elmo.svg?branch=master)](https://travis-ci.org/erizocosmico/elmo) [![Test Coverage](https://codecov.io/github/erizocosmico/elmo/coverage.svg?branch=master)](https://codecov.io/gh/erizocosmico/elmo/branch/master) [![Go Report Card](https://goreportcard.com/badge/github.com/erizocosmico/elmo)](https://goreportcard.com/report/github.com/erizocosmico/elmo)
 
 **elm(g)o** is a compiler to bring the Elm language to more places other than the frontend. For that, it compiles to the Go language, which enables a interop with it and the usage of its ecosystem.
 
@@ -23,8 +23,10 @@ The choice of Go as the host language is basically because of its great ecosyste
   - [x] Parse `import` declarations
   - [x] Parse `type` declarations
   - [x] Parse literals
-  - [ ] Parse value declarations
+  - [x] Parse value declarations
+  - [x] Parse patterns
   - [ ] Parse expressions
+- [ ] Operator precedence parsing
 - [ ] Semantic analysis
 - [ ] Generate Go ASTs from Elm ASTs
 - [ ] Module management
