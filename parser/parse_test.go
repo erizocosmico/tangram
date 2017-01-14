@@ -599,7 +599,7 @@ func TestParseDefinition(t *testing.T) {
 			Definition(
 				"::",
 				nil,
-				[]string{"a", "b"},
+				Patterns(VarPattern("a"), VarPattern("b")),
 				Literal(ast.Int, "5"),
 			),
 		},
@@ -612,6 +612,91 @@ func TestParseDefinition(t *testing.T) {
 			p := stringParser(c.input)
 			c.assert(t, p.parseDefinition())
 		}()
+	}
+}
+
+func TestParsePattern(t *testing.T) {
+	cases := []struct {
+		input  string
+		assert patternAssert
+	}{
+		{
+			`_`,
+			AnythingPattern,
+		},
+		{
+			`"foo"`,
+			LiteralPattern(ast.String, `"foo"`),
+		},
+		{
+			`True`,
+			CtorPattern("True"),
+		},
+		{
+			`a`,
+			VarPattern("a"),
+		},
+		{
+			`Just 42`,
+			CtorPattern("Just", LiteralPattern(ast.Int, "42")),
+		},
+		{
+			`(Just 42)`,
+			CtorPattern("Just", LiteralPattern(ast.Int, "42")),
+		},
+		{
+			`(a, b, _)`,
+			TuplePattern(
+				VarPattern("a"),
+				VarPattern("b"),
+				AnythingPattern,
+			),
+		},
+		{
+			`{a, b, c}`,
+			RecordPattern(
+				VarPattern("a"),
+				VarPattern("b"),
+				VarPattern("c"),
+			),
+		},
+		{
+			`Just 42 as m`,
+			AliasPattern(
+				CtorPattern("Just", LiteralPattern(ast.Int, "42")),
+				"m",
+			),
+		},
+		{
+			`[1, 2, _]`,
+			ListPattern(
+				LiteralPattern(ast.Int, "1"),
+				LiteralPattern(ast.Int, "2"),
+				AnythingPattern,
+			),
+		},
+		{
+			`a::b::_`,
+			CtorPattern(
+				"::",
+				VarPattern("a"),
+				CtorPattern(
+					"::",
+					VarPattern("b"),
+					AnythingPattern,
+				),
+			),
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.input, func(st *testing.T) {
+			c.input += "\n"
+			defer assertEOF(t, "", false)
+
+			p := stringParser(c.input)
+			c.assert(st, p.parsePattern(true))
+		})
 	}
 }
 
