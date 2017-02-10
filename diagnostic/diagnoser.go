@@ -66,10 +66,8 @@ func (s Severity) String() string {
 	return "unknown"
 }
 
-type colorFunc func(string, ...interface{}) string
-
 // Color returns a function to format with the color of the severity.
-func (s Severity) Color() colorFunc {
+func (s Severity) Color() func(string, ...interface{}) string {
 	switch s {
 	case Warn:
 		return color.YellowString

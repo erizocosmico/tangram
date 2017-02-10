@@ -23,6 +23,18 @@ const (
 	ImportsAndFixity
 )
 
+// Session represents the current parsing session.
+type Session struct {
+	*diagnostic.Diagnoser
+	*source.CodeMap
+}
+
+// NewSession creates a new parsing session with a way of diagnosing errors
+// and a code map.
+func NewSession(d *diagnostic.Diagnoser, cm *source.CodeMap) *Session {
+	return &Session{d, cm}
+}
+
 // ParseFile returns the AST representation of the given file.
 func ParseFile(fileName string, src io.Reader, mode ParseMode) (f *ast.File, err error) {
 	// TODO(erizocosmico): correctly set root

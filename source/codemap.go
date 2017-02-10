@@ -46,8 +46,11 @@ type Source struct {
 	Src []byte
 }
 
+// Line represents a single line of source code.
 type Line struct {
-	Num     int64
+	// Num is the line number.
+	Num int64
+	// Content is the content of the line, without the newline characters.
 	Content string
 }
 

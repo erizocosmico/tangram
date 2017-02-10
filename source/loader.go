@@ -9,8 +9,6 @@ import (
 // Loader finds the absolute path of files in the project and is able to
 // load their source.
 type Loader interface {
-	// Exists reports whether the file exists or not.
-	Exists(string) (bool, error)
 	// AbsPath returns the absolute path of the file.
 	AbsPath(string) string
 	// Load reads the source code of the file at the given relative project
@@ -29,22 +27,13 @@ func NewFsLoader(root string) *FsLoader {
 	return &FsLoader{root}
 }
 
-func (l *FsLoader) Exists(path string) (bool, error) {
-	f, err := os.Open(path)
-	if os.IsNotExist(err) {
-		return false, nil
-	} else if err != nil {
-		return false, err
-	}
-	defer f.Close()
-
-	return true, nil
-}
-
+// AbsPath returns the absolute path of the given path, which must be relative
+// to the root of the loader.
 func (l *FsLoader) AbsPath(path string) string {
 	return filepath.Join(l.root, path)
 }
 
+// Load retrieves the source code of the file at the given path.
 func (l *FsLoader) Load(path string) ([]byte, error) {
 	p := l.AbsPath(path)
 	f, err := os.Open(p)
@@ -56,27 +45,28 @@ func (l *FsLoader) Load(path string) ([]byte, error) {
 	return ioutil.ReadAll(f)
 }
 
+// MemLoader is a loader that works in memory. It is intended for test
+// purposes and not real use.
 type MemLoader struct {
 	files map[string]string
 }
 
+// NewMemLoader returns a new memory loader.
 func NewMemLoader() *MemLoader {
 	return &MemLoader{make(map[string]string)}
 }
 
+// Add inserts the content for the given path to the memory loader.
 func (l *MemLoader) Add(path, content string) {
 	l.files[path] = content
 }
 
-func (l *MemLoader) Exists(path string) (bool, error) {
-	_, ok := l.files[path]
-	return ok, nil
-}
-
+// AbsPath returns the absolute path of the given path.
 func (l *MemLoader) AbsPath(path string) string {
-	return filepath.Join("/", path)
+	return path
 }
 
+// Load retrieves the content of the given path.
 func (l *MemLoader) Load(path string) ([]byte, error) {
 	if s, ok := l.files[path]; ok {
 		return []byte(s), nil

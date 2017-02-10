@@ -38,14 +38,19 @@ type msgDiagnostic struct {
 	pos      *token.Position
 }
 
+// Msg is a human-readable message of a diagnostic.
 type Msg interface {
 	fmt.Stringer
 }
 
+// NewRegionDiagnostic creates a new diagnostic for a specific region of the
+// source code.
 func NewRegionDiagnostic(severity Severity, msg Msg, pos *token.Position, region []source.Line) Diagnostic {
 	return &regionDiagnostic{severity, msg, pos, region}
 }
 
+// NewMsgDiagnostic creates a new diagnostic that is not for a specific region
+// of the source code.
 func NewMsgDiagnostic(severity Severity, msg Msg, pos *token.Position) Diagnostic {
 	return &msgDiagnostic{severity, msg, pos}
 }
@@ -63,6 +68,8 @@ func (d *msgDiagnostic) HasRegion() bool         { return false }
 func (d *regionDiagnostic) Lines() []source.Line { return d.lines }
 func (d *msgDiagnostic) Lines() []source.Line    { return nil }
 
+// UnexpectedEOF returns a diagnostic message saying that EOF was not expected,
+// but one of the given token types.
 func UnexpectedEOF(expecting ...token.Type) Msg {
 	return &parseError{&unexpectedEOF{typeList(expecting)}}
 }
@@ -83,6 +90,8 @@ func (e *unexpectedEOF) String() string {
 	return fmt.Sprintf("Unexpected end of file, I was expecting %s instead", e.expecting)
 }
 
+// Expecting returns a diagnostic message saying that the found token was not
+// what the parser was expecting.
 func Expecting(found token.Type, expecting ...token.Type) Msg {
 	return &parseError{
 		&errExpecting{
@@ -101,6 +110,7 @@ func (e *errExpecting) String() string {
 	return fmt.Sprintf("I found %s, but I was expecting %s instead", e.found, e.expecting)
 }
 
+// ParseError returns a custom diagnostic message.
 func ParseError(msg string) Msg {
 	return &parseError{&msgErr{msg}}
 }
