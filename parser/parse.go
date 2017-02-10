@@ -7,59 +7,50 @@ import (
 	"unicode/utf8"
 
 	"github.com/erizocosmico/elmo/ast"
+	"github.com/erizocosmico/elmo/diagnostic"
 	"github.com/erizocosmico/elmo/scanner"
+	"github.com/erizocosmico/elmo/source"
 	"github.com/erizocosmico/elmo/token"
 )
 
 type parser struct {
+	sess       *Session
 	scanner    *scanner.Scanner
 	fileName   string
 	unresolved []*ast.Ident
+	mode       ParseMode
 
-	minCol int
-	tok    *token.Token
-	ctx    []*token.Token
-	errors []error
+	minCol  int
+	tok     *token.Token
+	errors  []error
+	regions []int64
+}
+
+func newParser(sess *Session) *parser {
+	return &parser{sess: sess}
 }
 
 type bailout struct{}
 
-func (p *parser) init(fileName string, s *scanner.Scanner) {
+func (p *parser) init(fileName string, s *scanner.Scanner, mode ParseMode) {
 	p.scanner = s
 	p.fileName = fileName
+	p.mode = mode
 
 	p.next()
 }
 
 func (p *parser) parseFile() *ast.File {
-	var (
-		imports []*ast.ImportDecl
-		decls   []ast.Decl
-		mod     = p.parseModule()
-	)
+	mod := p.parseModule()
+	imports := p.parseImports()
 
-	for {
-		p.resetCtx()
-		if p.is(token.EOF) {
-			break
-		}
-
-		switch p.tok.Type {
-		case token.Import:
-			imports = append(imports, p.parseImport())
-
-		case token.TypeDef:
-			decls = append(decls, p.parseTypeDecl())
-
-		case token.Infixl, token.Infixr, token.Infix:
-			decls = append(decls, p.parseInfixDecl())
-
-		case token.Identifier, token.LeftParen:
-			decls = append(decls, p.parseDefinition())
-
-		default:
-			p.errorExpectedOneOf(p.tok, token.Import, token.TypeDef, token.Identifier)
-			panic(bailout{})
+	var decls []ast.Decl
+	if p.mode == FullParse || p.mode == ImportsAndFixity {
+		for p.tok.Type != token.EOF {
+			if p.mode == ImportsAndFixity {
+				p.skipUntilNextFixity()
+			}
+			decls = append(decls, p.parseDecl())
 		}
 	}
 
@@ -68,6 +59,16 @@ func (p *parser) parseFile() *ast.File {
 		Module:  mod,
 		Imports: imports,
 		Decls:   decls,
+	}
+}
+
+func (p *parser) skipUntilNextFixity() {
+	for {
+		switch p.tok.Type {
+		case token.Infix, token.Infixr, token.Infixl, token.EOF:
+			return
+		}
+		p.next()
 	}
 }
 
@@ -89,6 +90,14 @@ func (p *parser) parseModule() *ast.ModuleDecl {
 	}
 
 	return decl
+}
+
+func (p *parser) parseImports() []*ast.ImportDecl {
+	var imports []*ast.ImportDecl
+	for p.tok.Type == token.Import {
+		imports = append(imports, p.parseImport())
+	}
+	return imports
 }
 
 func (p *parser) parseImport() *ast.ImportDecl {
@@ -274,6 +283,32 @@ func (p *parser) parseLiteral() *ast.BasicLit {
 	}
 }
 
+func (p *parser) parsingDecl() {
+	p.minCol = 2
+}
+
+func (p *parser) parseDecl() ast.Decl {
+	var decl ast.Decl
+	switch p.tok.Type {
+	case token.TypeDef:
+		decl = p.parseTypeDecl()
+
+	case token.Infixl, token.Infixr, token.Infix:
+		decl = p.parseInfixDecl()
+
+	case token.Identifier, token.LeftParen:
+		decl = p.parseDefinition()
+
+	default:
+		p.errorExpectedOneOf(p.tok, token.TypeDef, token.Identifier)
+		panic(bailout{})
+	}
+
+	// reset min column after decl
+	p.minCol = 1
+	return decl
+}
+
 func (p *parser) parseInfixDecl() ast.Decl {
 	var assoc ast.Associativity
 	if p.is(token.Infixl) {
@@ -283,6 +318,7 @@ func (p *parser) parseInfixDecl() ast.Decl {
 	}
 
 	pos := p.expectOneOf(token.Infixl, token.Infixr, token.Infix)
+	p.parsingDecl()
 	if !p.is(token.Int) {
 		p.errorExpected(p.tok, token.Int)
 	}
@@ -304,6 +340,7 @@ func (p *parser) parseInfixDecl() ast.Decl {
 
 func (p *parser) parseTypeDecl() ast.Decl {
 	typePos := p.expect(token.TypeDef)
+	p.parsingDecl()
 	if p.is(token.Alias) {
 		return p.parseAliasType(typePos)
 	}
@@ -480,6 +517,7 @@ func (p *parser) parseDefinition() ast.Decl {
 		name = p.parseOp()
 		p.expect(token.RightParen)
 	}
+	p.parsingDecl()
 
 	if p.is(token.Colon) {
 		decl.Annotation = &ast.TypeAnnotation{Name: name}
@@ -699,16 +737,9 @@ func (p *parser) next() {
 		p.next()
 	} else {
 		if p.tok.Column <= p.minCol {
+			// TODO(erizocosmico): this is crap, rework it
 			p.errorMessage(p.tok.Position, "I was expecting a whitespace")
 		}
-
-		p.ctx = append(p.ctx, p.tok)
-	}
-}
-
-func (p *parser) resetCtx() {
-	if len(p.ctx) > 0 {
-		p.ctx = []*token.Token{p.ctx[len(p.ctx)-1]}
 	}
 }
 
@@ -756,15 +787,48 @@ func (p *parser) atLineStart() bool {
 	return p.tok.Column == 1
 }
 
+func (p *parser) startRegion() {
+	p.regions = append(p.regions, int64(p.tok.Line))
+}
+
+func (p *parser) endRegion() {
+	p.regions = p.regions[:len(p.regions)-1]
+}
+
+func (p *parser) regionStart() int64 {
+	if len(p.regions) == 0 {
+		return 0
+	}
+	return p.regions[len(p.regions)-1]
+}
+
+func (p *parser) region(delta int64) []source.Line {
+	start := p.regionStart()
+	end := int64(p.tok.Line) + delta
+	region, err := p.sess.Source(p.fileName).Region(start, end)
+	if err != nil {
+		p.sess.Diagnose(p.fileName, diagnostic.NewMsgDiagnostic(
+			diagnostic.Fatal,
+			// TODO(erizocosmico): not really a parse error, do something more appropiate
+			diagnostic.ParseError(fmt.Sprintf("unable to get region of lines %d-%d of file %s: %s", start, end, p.fileName, err)),
+			p.tok.Position,
+		))
+	}
+	return region
+}
+
+func (p *parser) regionError(pos *token.Position, msg diagnostic.Msg) {
+	p.sess.Diagnose(p.fileName, diagnostic.NewRegionDiagnostic(
+		diagnostic.Error,
+		msg,
+		pos,
+		p.region(1),
+	))
+}
+
 func (p *parser) errorExpected(t *token.Token, typ token.Type) {
 	if t.Type == token.EOF {
-		p.errors = append(p.errors, &parseError{
-			&unexpectedEOFError{
-				ctx:       p.ctx,
-				pos:       t.Position,
-				expecting: []token.Type{typ},
-			},
-		})
+		p.regionError(t.Position, diagnostic.UnexpectedEOF(typ))
 		panic(bailout{})
 	}
 
@@ -772,23 +836,12 @@ func (p *parser) errorExpected(t *token.Token, typ token.Type) {
 }
 
 func (p *parser) errorExpectedOneOf(t *token.Token, types ...token.Type) {
-	p.errors = append(p.errors, &parseError{
-		&expectedError{
-			ctx:       p.ctx,
-			pos:       t.Position,
-			expecting: types,
-		},
-	})
+	p.regionError(t.Position, diagnostic.Expecting(t.Type, types...))
 }
 
 func (p *parser) errorMessage(pos *token.Position, msg string) {
-	p.errors = append(p.errors, &parseError{
-		&msgError{
-			ctx: p.ctx,
-			pos: pos,
-			msg: msg,
-		},
-	})
+	p.regionError(pos, diagnostic.ParseError(msg))
+
 }
 
 func (p *parser) errorExpectedType(pos *token.Position) {
