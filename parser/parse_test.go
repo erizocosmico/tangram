@@ -6,7 +6,9 @@ import (
 	"testing"
 
 	"github.com/erizocosmico/elmo/ast"
+	"github.com/erizocosmico/elmo/diagnostic"
 	"github.com/erizocosmico/elmo/scanner"
+	"github.com/erizocosmico/elmo/source"
 	"github.com/stretchr/testify/require"
 )
 
@@ -45,6 +47,7 @@ func TestParseModule(t *testing.T) {
 			defer assertEOF(t, c.input, c.eof)
 
 			p := stringParser(c.input)
+			defer p.sess.Emit()
 			decl := p.parseModule()
 
 			if c.ok {
@@ -65,7 +68,7 @@ func TestParseModule(t *testing.T) {
 				require.Equal(c.module, decl.Name.String(), c.input)
 				require.Equal(c.exposed, exposed, c.input)
 			} else {
-				require.NotEqual(0, len(p.errors), c.input)
+				require.False(p.sess.IsOK(), c.input)
 			}
 		}()
 	}
@@ -133,7 +136,7 @@ func TestParseImport(t *testing.T) {
 					require.Equal(c.alias, decl.Alias.Name, c.input)
 				}
 			} else {
-				require.NotEqual(0, len(p.errors), c.input)
+				require.False(p.sess.IsOK(), c.input)
 			}
 		}()
 	}
@@ -175,7 +178,7 @@ func TestParseInfixDecl(t *testing.T) {
 				require.Nil(err, c.input)
 				require.Equal(c.priority, p, c.input)
 			} else {
-				require.NotEqual(0, len(p.errors), c.input)
+				require.False(p.sess.IsOK(), c.input)
 			}
 		}()
 	}
@@ -716,7 +719,13 @@ func assertEOF(t *testing.T, input string, eof bool) {
 func stringParser(str string) *parser {
 	scanner := scanner.New("test", strings.NewReader(str))
 	go scanner.Run()
-	var p = new(parser)
-	p.init("test", scanner)
+	loader := source.NewMemLoader()
+	loader.Add("test", str)
+	cm := source.NewCodeMap(loader)
+	cm.Add("test")
+	d := diagnostic.NewDiagnoser(cm, diagnostic.Stderr(true, true))
+	sess := NewSession(d, cm)
+	var p = newParser(sess)
+	p.init("test", scanner, FullParse)
 	return p
 }

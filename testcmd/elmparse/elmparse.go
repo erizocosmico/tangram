@@ -21,7 +21,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	file, err := parser.ParseFile("stdin", os.Stdin)
+	file, err := parser.ParseFile("stdin", os.Stdin, parser.FullParse)
 	if err != nil {
 		fmt.Println(err.Error())
 		os.Exit(1)
