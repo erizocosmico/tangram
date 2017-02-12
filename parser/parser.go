@@ -43,13 +43,13 @@ func (p *parser) init(fileName string, s *scanner.Scanner, mode ParseMode) {
 func (p *parser) parseFile() *ast.File {
 	mod := p.parseModule()
 	imports := p.parseImports()
+	if p.mode == ImportsAndFixity {
+		p.skipUntilNextFixity()
+	}
 
 	var decls []ast.Decl
 	if p.mode == FullParse || p.mode == ImportsAndFixity {
 		for p.tok.Type != token.EOF {
-			if p.mode == ImportsAndFixity {
-				p.skipUntilNextFixity()
-			}
 			decls = append(decls, p.parseDecl())
 		}
 	}
@@ -320,6 +320,11 @@ func (p *parser) parseDecl() ast.Decl {
 
 	p.parsedDecl()
 	p.endRegion()
+
+	if p.mode == ImportsAndFixity {
+		p.skipUntilNextFixity()
+	}
+
 	return decl
 }
 
