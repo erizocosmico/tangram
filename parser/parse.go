@@ -11,6 +11,8 @@ import (
 	"github.com/erizocosmico/elmo/source"
 )
 
+// ParseMode specifies the type of mode in which the parser will be run.
+// ParseMode can be used to only parse certain parts of a file.
 type ParseMode int
 
 const (
