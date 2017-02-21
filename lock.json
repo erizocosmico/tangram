@@ -1,0 +1,60 @@
+{
+    "memo": "872a0273e0ee25a4c32f136a55152aea38d2339bdffeec2573591d2d6927179c",
+    "projects": [
+        {
+            "name": "github.com/davecgh/go-spew",
+            "version": "v1.1.0",
+            "revision": "a7a0063072ed89d04285d3d3362aa590ed9f7878",
+            "packages": [
+                "spew"
+            ]
+        },
+        {
+            "name": "github.com/fatih/color",
+            "revision": "5ec5d9d3c2cf82e9688b34e9bc27a94d616a7193",
+            "packages": [
+                "."
+            ]
+        },
+        {
+            "name": "github.com/mattn/go-colorable",
+            "branch": "master",
+            "revision": "5411d3eea5978e6cdc258b30de592b60df6aba96",
+            "packages": [
+                "."
+            ]
+        },
+        {
+            "name": "github.com/mattn/go-isatty",
+            "branch": "master",
+            "revision": "281032e84ae07510239465db46bf442aa44b953a",
+            "packages": [
+                "."
+            ]
+        },
+        {
+            "name": "github.com/pmezard/go-difflib",
+            "version": "v1.0.0",
+            "revision": "792786c7400a136282c1664665ae0a8db921c6c2",
+            "packages": [
+                "difflib"
+            ]
+        },
+        {
+            "name": "github.com/stretchr/testify",
+            "version": "v1.1.4",
+            "revision": "69483b4bd14f5845b5a1e55bca19e954e827f1d0",
+            "packages": [
+                "require"
+            ]
+        },
+        {
+            "name": "golang.org/x/sys",
+            "branch": "master",
+            "revision": "aaabbdc969c3935a2a7f61efac801e7163c73a2a",
+            "packages": [
+                "unix"
+            ]
+        }
+    ]
+}

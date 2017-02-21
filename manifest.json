@@ -1,0 +1,10 @@
+{
+    "dependencies": {
+        "github.com/fatih/color": {
+            "revision": "5ec5d9d3c2cf82e9688b34e9bc27a94d616a7193"
+        },
+        "github.com/stretchr/testify": {
+            "version": "v1.1.4"
+        }
+    }
+}

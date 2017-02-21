@@ -62,7 +62,7 @@ func (e *writerEmitter) emitDiagnostic(file string, d Diagnostic) error {
 		}
 	}
 
-	return e.print("at %s:%d:%d\n\n", file, d.Line(), d.Column())
+	return e.print("\nat %s:%d:%d\n\n", file, d.Line(), d.Column())
 }
 
 func (e *writerEmitter) print(msg string, args ...interface{}) error {
@@ -79,14 +79,16 @@ func (e *writerEmitter) printSeverity(d Diagnostic) error {
 }
 
 func (e *writerEmitter) printRegion(d Diagnostic) error {
-	var (
-		buf            bytes.Buffer
-		lines          = d.Lines()
-		line           = d.Line()
-		maxLine        = lines[len(lines)-1].Num
-		lastLineDigits = int64(len(fmt.Sprint(maxLine)))
-		lineFormat     = "\n" + `%-` + fmt.Sprint(lastLineDigits) + "d| "
-	)
+	var buf bytes.Buffer
+	lines := d.Lines()
+	if len(lines) == 0 {
+		return nil
+	}
+
+	line := d.Line()
+	maxLine := lines[len(lines)-1].Num
+	lastLineDigits := int64(len(fmt.Sprint(maxLine)))
+	lineFormat := "\n" + `%-` + fmt.Sprint(lastLineDigits) + "d | "
 
 	buf.WriteRune('\n')
 	for _, l := range lines {
@@ -94,7 +96,7 @@ func (e *writerEmitter) printRegion(d Diagnostic) error {
 		buf.WriteString(l.Content)
 		if l.Num == line {
 			buf.WriteRune('\n')
-			for i := int64(0); i < d.Column()+2-1+lastLineDigits; i++ {
+			for i := int64(0); i < d.Column()+3-1+lastLineDigits; i++ {
 				buf.WriteRune(' ')
 			}
 
@@ -104,8 +106,8 @@ func (e *writerEmitter) printRegion(d Diagnostic) error {
 				buf.WriteRune('^')
 			}
 		}
-		buf.WriteRune('\n')
 	}
+	buf.WriteRune('\n')
 
 	return e.print(buf.String())
 }
