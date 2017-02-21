@@ -85,19 +85,24 @@ func (e *writerEmitter) printRegion(d Diagnostic) error {
 		return nil
 	}
 
-	line := d.Line()
-	maxLine := lines[len(lines)-1].Num
+	line := int(d.Line())
+	startLine := int(d.StartLine())
+	maxLine := startLine + len(lines) - 1
 	lastLineDigits := int64(len(fmt.Sprint(maxLine)))
 	lineFormat := "\n" + `%-` + fmt.Sprint(lastLineDigits) + "d | "
 
 	buf.WriteRune('\n')
-	for _, l := range lines {
-		buf.WriteString(fmt.Sprintf(lineFormat, l.Num))
-		buf.WriteString(l.Content)
-		if l.Num == line {
+	for i, l := range lines {
+		buf.WriteString(fmt.Sprintf(lineFormat, startLine+i))
+		buf.WriteString(l)
+		if startLine+i == line {
 			buf.WriteRune('\n')
-			for i := int64(0); i < d.Column()+3-1+lastLineDigits; i++ {
-				buf.WriteRune(' ')
+			for j := int64(0); j < d.Column()+3-1+lastLineDigits; j++ {
+				if e.colors {
+					buf.WriteString(d.Severity().Color()("-"))
+				} else {
+					buf.WriteRune('-')
+				}
 			}
 
 			if e.colors {

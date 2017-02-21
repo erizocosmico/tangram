@@ -9,7 +9,6 @@ import (
 	"github.com/erizocosmico/elmo/ast"
 	"github.com/erizocosmico/elmo/diagnostic"
 	"github.com/erizocosmico/elmo/scanner"
-	"github.com/erizocosmico/elmo/source"
 	"github.com/erizocosmico/elmo/token"
 )
 
@@ -34,7 +33,7 @@ type parser struct {
 	ignoreNewDecl bool
 	tok           *token.Token
 	errors        []error
-	regions       []int64
+	regions       []*token.Position
 }
 
 func newParser(sess *Session) *parser {
@@ -90,8 +89,8 @@ func (p *parser) skipUntilNextFixity() {
 
 func (p *parser) parseModule() *ast.ModuleDecl {
 	var decl = new(ast.ModuleDecl)
-	decl.Module = p.expect(token.Module)
 	p.startRegion()
+	decl.Module = p.expect(token.Module)
 	decl.Name = p.parseModuleName()
 
 	if p.is(token.Exposing) {
@@ -121,8 +120,8 @@ func (p *parser) parseImports() []*ast.ImportDecl {
 
 func (p *parser) parseImport() *ast.ImportDecl {
 	var decl = new(ast.ImportDecl)
-	decl.Import = p.expect(token.Import)
 	p.startRegion()
+	decl.Import = p.expect(token.Import)
 	decl.Module = p.parseModuleName()
 
 	if p.is(token.As) {
@@ -826,41 +825,37 @@ func (p *parser) atLineStart() bool {
 }
 
 func (p *parser) startRegion() {
-	p.regions = append(p.regions, int64(p.tok.Line))
+	p.regions = append(p.regions, p.tok.Position)
 }
 
 func (p *parser) endRegion() {
 	p.regions = p.regions[:len(p.regions)-1]
 }
 
-func (p *parser) regionStart() int64 {
+func (p *parser) regionStart() *token.Position {
 	if len(p.regions) == 0 {
-		return 0
+		return &token.Position{Offset: token.NoPos}
 	}
 	return p.regions[len(p.regions)-1]
 }
 
-func (p *parser) region(delta int64) []source.Line {
-	start := p.regionStart()
-	end := int64(p.tok.Line) + delta
-	region, err := p.sess.Source(p.fileName).Region(start, end)
+func (p *parser) region(start *token.Position) []string {
+	region, err := p.sess.Source(p.fileName).Region(start.Offset, p.tok.Offset+token.Pos(len(p.tok.Source)))
 	if err != nil {
-		p.sess.Diagnose(p.fileName, diagnostic.NewMsgDiagnostic(
-			diagnostic.Fatal,
-			// TODO(erizocosmico): not really a parse error, do something more appropiate
-			diagnostic.ParseError(fmt.Sprintf("unable to get region of lines %d-%d of file %s: %s", start, end, p.fileName, err)),
-			p.tok.Position,
-		))
+		// TODO(erizocosmico): should never happen, but handle it properly
+		panic(err)
 	}
 	return region
 }
 
 func (p *parser) regionError(pos *token.Position, msg diagnostic.Msg) {
+	start := p.regionStart()
 	p.sess.Diagnose(p.fileName, diagnostic.NewRegionDiagnostic(
 		diagnostic.Error,
 		msg,
+		start,
 		pos,
-		p.region(0),
+		p.region(start),
 	))
 }
 

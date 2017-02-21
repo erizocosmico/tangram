@@ -41,6 +41,7 @@ func NewSession(d *diagnostic.Diagnoser, cm *source.CodeMap) *Session {
 func ParseFile(fileName string, src io.Reader, mode ParseMode) (f *ast.File, err error) {
 	// TODO(erizocosmico): correctly set root
 	cm := source.NewCodeMap(source.NewFsLoader("."))
+	defer cm.Close()
 	sess := NewSession(
 		diagnostic.NewDiagnoser(cm, diagnostic.Stderr(true, true)),
 		cm,
