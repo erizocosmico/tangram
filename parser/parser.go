@@ -20,10 +20,21 @@ type parser struct {
 	unresolved []*ast.Ident
 	mode       ParseMode
 
-	inDecl  bool
-	tok     *token.Token
-	errors  []error
-	regions []int64
+	// inNewDecl indicates the current token is at the start of the line,
+	// that is, we're parsing a new declaration.
+	// New declarations must be acknowledge before asking for a new token
+	// otherwise, an error will occur.
+	inNewDecl bool
+	// isStart indicates the current token is the first one of the parsing.
+	// What that means is that this token must be at the start of the line, as
+	// it begins a new declaration.
+	isStart bool
+	// ignoreNewDecl indicates if the parser must ignore tokens that are new
+	// declarations, and just treat them as if they weren't.
+	ignoreNewDecl bool
+	tok           *token.Token
+	errors        []error
+	regions       []int64
 }
 
 func newParser(sess *Session) *parser {
@@ -33,6 +44,9 @@ func newParser(sess *Session) *parser {
 type bailout struct{}
 
 func (p *parser) init(fileName string, s *scanner.Scanner, mode ParseMode) {
+	p.inNewDecl = false
+	p.isStart = true
+	p.ignoreNewDecl = false
 	p.scanner = s
 	p.fileName = fileName
 	p.mode = mode
@@ -63,9 +77,11 @@ func (p *parser) parseFile() *ast.File {
 }
 
 func (p *parser) skipUntilNextFixity() {
+	p.ignoreNewDecl = true
 	for {
 		switch p.tok.Type {
 		case token.Infix, token.Infixr, token.Infixl, token.EOF:
+			p.ignoreNewDecl = false
 			return
 		}
 		p.next()
@@ -75,7 +91,6 @@ func (p *parser) skipUntilNextFixity() {
 func (p *parser) parseModule() *ast.ModuleDecl {
 	var decl = new(ast.ModuleDecl)
 	decl.Module = p.expect(token.Module)
-	p.parsingDecl()
 	p.startRegion()
 	decl.Name = p.parseModuleName()
 
@@ -91,7 +106,7 @@ func (p *parser) parseModule() *ast.ModuleDecl {
 		decl.Exposing = exposedList
 	}
 
-	p.parsedDecl()
+	p.finishedDecl()
 	p.endRegion()
 	return decl
 }
@@ -107,7 +122,6 @@ func (p *parser) parseImports() []*ast.ImportDecl {
 func (p *parser) parseImport() *ast.ImportDecl {
 	var decl = new(ast.ImportDecl)
 	decl.Import = p.expect(token.Import)
-	p.parsingDecl()
 	p.startRegion()
 	decl.Module = p.parseModuleName()
 
@@ -128,7 +142,7 @@ func (p *parser) parseImport() *ast.ImportDecl {
 		decl.Exposing = exposedList
 	}
 
-	p.parsedDecl()
+	p.finishedDecl()
 	p.endRegion()
 	return decl
 }
@@ -291,16 +305,7 @@ func (p *parser) parseLiteral() *ast.BasicLit {
 	}
 }
 
-func (p *parser) parsingDecl() {
-	p.inDecl = true
-}
-
-func (p *parser) parsedDecl() {
-	p.inDecl = false
-}
-
 func (p *parser) parseDecl() ast.Decl {
-	p.parsingDecl()
 	p.startRegion()
 	var decl ast.Decl
 	switch p.tok.Type {
@@ -318,7 +323,7 @@ func (p *parser) parseDecl() ast.Decl {
 		panic(bailout{})
 	}
 
-	p.parsedDecl()
+	p.finishedDecl()
 	p.endRegion()
 
 	if p.mode == ImportsAndFixity {
@@ -337,7 +342,6 @@ func (p *parser) parseInfixDecl() ast.Decl {
 	}
 
 	pos := p.expectOneOf(token.Infixl, token.Infixr, token.Infix)
-	p.parsingDecl()
 	if !p.is(token.Int) {
 		p.errorExpected(p.tok, token.Int)
 	}
@@ -359,7 +363,6 @@ func (p *parser) parseInfixDecl() ast.Decl {
 
 func (p *parser) parseTypeDecl() ast.Decl {
 	typePos := p.expect(token.TypeDef)
-	p.parsingDecl()
 	if p.is(token.Alias) {
 		return p.parseAliasType(typePos)
 	}
@@ -536,24 +539,14 @@ func (p *parser) parseDefinition() ast.Decl {
 		name = p.parseOp()
 		p.expect(token.RightParen)
 	}
-	p.parsingDecl()
 
 	if p.is(token.Colon) {
 		decl.Annotation = &ast.TypeAnnotation{Name: name}
 		decl.Annotation.Colon = p.expect(token.Colon)
 		decl.Annotation.Type = p.expectType()
+		p.finishedDecl()
 
 		defName := p.parseIdentifierOrOp()
-		if defName.NamePos.Column != name.NamePos.Column {
-			p.errorMessage(
-				defName.NamePos,
-				fmt.Sprintf(
-					"Definition of %s can not be indented.",
-					defName.Name,
-				),
-			)
-		}
-
 		if defName.Name != name.Name {
 			p.errorMessage(
 				p.tok.Position,
@@ -750,11 +743,42 @@ func (p *parser) parseExpr() ast.Expr {
 }
 
 func (p *parser) next() {
+	// if the current position is a new declaration but it has not been
+	// acknowledged we need to report it
+	if p.inNewDecl {
+		p.errorMessage(p.tok.Position, "I encountered what looks like a new declaration, but the previous one has not been finished yet.")
+		// silence the error, or it will be repeated forever until the end of
+		// tokens
+		p.inNewDecl = false
+	}
+
 	p.tok = p.scanner.Next()
 	if p.is(token.Comment) {
 		// ignore comments for now
 		p.next()
 	}
+
+	// if this is the first token and it's not at the beginning of the line
+	// it must be reported, as it must be a declaration
+	if p.isStart {
+		p.isStart = false
+		if !p.atLineStart() {
+			p.errorMessage(p.tok.Position, "I expected a new declaration. All declarations need to start at the beginning of their line.")
+		}
+	} else if !p.ignoreNewDecl && p.atLineStart() {
+		p.inNewDecl = true
+	}
+}
+
+// finishedDecl marks as finished the parsing of the previous declaration. It
+// generates an error otherwise.
+func (p *parser) finishedDecl() {
+	if p.is(token.EOF) || p.inNewDecl {
+		p.inNewDecl = false
+		return
+	}
+
+	p.errorMessage(p.tok.Position, "I was expecting a new declaration or the end of file, but I got %s instead.", p.tok.Type)
 }
 
 func (p *parser) expect(typ token.Type) token.Pos {
@@ -853,8 +877,8 @@ func (p *parser) errorExpectedOneOf(t *token.Token, types ...token.Type) {
 	p.regionError(t.Position, diagnostic.Expecting(t.Type, types...))
 }
 
-func (p *parser) errorMessage(pos *token.Position, msg string) {
-	p.regionError(pos, diagnostic.ParseError(msg))
+func (p *parser) errorMessage(pos *token.Position, msg string, args ...interface{}) {
+	p.regionError(pos, diagnostic.ParseError(fmt.Sprintf(msg, args...)))
 
 }
 
