@@ -1,7 +1,8 @@
 package source
 
 import (
-	"io/ioutil"
+	"bytes"
+	"io"
 	"os"
 	"path/filepath"
 )
@@ -13,7 +14,7 @@ type Loader interface {
 	AbsPath(string) string
 	// Load reads the source code of the file at the given relative project
 	// path.
-	Load(string) ([]byte, error)
+	Load(string) (io.ReadSeeker, error)
 }
 
 // FsLoader is a loader from file system.
@@ -34,15 +35,14 @@ func (l *FsLoader) AbsPath(path string) string {
 }
 
 // Load retrieves the source code of the file at the given path.
-func (l *FsLoader) Load(path string) ([]byte, error) {
+func (l *FsLoader) Load(path string) (io.ReadSeeker, error) {
 	p := l.AbsPath(path)
 	f, err := os.Open(p)
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
 
-	return ioutil.ReadAll(f)
+	return f, nil
 }
 
 // MemLoader is a loader that works in memory. It is intended for test
@@ -67,9 +67,9 @@ func (l *MemLoader) AbsPath(path string) string {
 }
 
 // Load retrieves the content of the given path.
-func (l *MemLoader) Load(path string) ([]byte, error) {
+func (l *MemLoader) Load(path string) (io.ReadSeeker, error) {
 	if s, ok := l.files[path]; ok {
-		return []byte(s), nil
+		return bytes.NewReader([]byte(s)), nil
 	}
 
 	return nil, os.ErrNotExist

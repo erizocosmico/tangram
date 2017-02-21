@@ -4,6 +4,9 @@ import (
 	"bufio"
 	"bytes"
 	"io"
+	"strings"
+
+	"github.com/erizocosmico/elmo/token"
 )
 
 // CodeMap contains a set of source code files.
@@ -24,12 +27,24 @@ func (cm *CodeMap) Add(path string) error {
 		return nil
 	}
 
-	content, err := cm.loader.Load(path)
+	src, err := cm.loader.Load(path)
 	if err != nil {
 		return err
 	}
 
-	cm.files[path] = &Source{path, content}
+	cm.files[path] = &Source{path, src}
+	return nil
+}
+
+// Close closes all the source files that implement io.Closer.
+func (cm *CodeMap) Close() error {
+	for _, f := range cm.files {
+		if f, ok := f.Src.(io.Closer); ok {
+			if err := f.Close(); err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }
 
@@ -43,40 +58,35 @@ type Source struct {
 	// Path is the absolute path of the file.
 	Path string
 	// Src is the source code of the file.
-	Src []byte
+	Src io.ReadSeeker
 }
 
-// Line represents a single line of source code.
-type Line struct {
-	// Num is the line number.
-	Num int64
-	// Content is the content of the line, without the newline characters.
-	Content string
-}
+// Region returns a region of the source code beginning at the start position
+// and ending at the first line ending after the end position or eof.
+func (s *Source) Region(start, end token.Pos) ([]string, error) {
+	if _, err := s.Src.Seek(int64(start), io.SeekStart); err != nil {
+		return nil, err
+	}
 
-// Region returns a region of the source code.
-func (s *Source) Region(start, end int64) ([]Line, error) {
 	var (
-		r     = bufio.NewReader(bytes.NewBuffer(s.Src))
-		l     int64
-		lines []Line
+		buf  bytes.Buffer
+		size = int(end - start)
+		r    = bufio.NewReader(s.Src)
 	)
 
 	for {
-		l++
-		ln, _, err := r.ReadLine()
+		l, _, err := r.ReadLine()
 		if err == io.EOF {
 			break
 		} else if err != nil {
 			return nil, err
 		}
 
-		if l >= start && l <= end {
-			lines = append(lines, Line{l, string(ln)})
-		} else if l > end {
+		buf.Write(l)
+		if buf.Len() >= size {
 			break
 		}
 	}
 
-	return lines, nil
+	return strings.Split(buf.String(), "\n"), nil
 }
