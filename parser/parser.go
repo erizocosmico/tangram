@@ -146,19 +146,20 @@ func (p *parser) parseImport() *ast.ImportDecl {
 	return decl
 }
 
-func (p *parser) parseModuleName() ast.ModuleName {
-	name := ast.ModuleName{p.parseUpperName()}
+func (p *parser) parseModuleName() ast.Expr {
+	path := []*ast.Ident{p.parseUpperName()}
 
-	for {
-		if !p.is(token.Dot) {
-			break
-		}
-
+	for p.is(token.Dot) {
+		// TODO(erizocosmico): check dot is right after the ident
 		p.expect(token.Dot)
-		name = append(name, p.parseUpperName())
+		path = append(path, p.parseUpperName())
 	}
 
-	return name
+	if len(path) == 1 {
+		return path[0]
+	}
+
+	return ast.NewSelectorExpr(path...)
 }
 
 func (p *parser) parseExposedIdents() []*ast.ExposedIdent {
@@ -188,7 +189,7 @@ func (p *parser) parseExposedIdent() *ast.ExposedIdent {
 	ident := ast.NewExposedIdent(p.parseIdentifierOrOp())
 
 	if p.is(token.LeftParen) {
-		if !unicode.IsUpper(rune(ident.Name[0])) {
+		if !isUpper(ident.Name) {
 			p.errorMessage(ident.NamePos, "I was expecting an upper case name.")
 		}
 		var exposingList = new(ast.ExposingList)
@@ -232,14 +233,50 @@ func (p *parser) parseIdentifierOrOp() *ast.Ident {
 	}
 
 	p.expect(token.LeftParen)
-	defer p.expect(token.RightParen)
-	return p.parseOp()
+	op := p.parseOp()
+	p.expect(token.RightParen)
+	return op
+}
+
+// parseQualifiedIdentifier parses an identifier and its qualifier, if any.
+// This should only be used outside of expressions, as expressions already
+// parse selector expressions by themselves.
+// This is specially to parse identifiers with an optional qualifier.
+func (p *parser) parseQualifiedIdentifier() ast.Expr {
+	if isUpper(p.tok.Value) {
+		var path []*ast.Ident
+		path = append(path, p.parseUpperName())
+
+		for p.is(token.Dot) {
+			// TODO(erizocosmico): check the dot comes immediately after the name
+			p.expect(token.Dot)
+
+			if p.is(token.Identifier) {
+				if isLower(p.tok.Value) {
+					path = append(path, p.parseLowerName())
+					// a lower identifier means the end of the path
+					break
+				}
+				path = append(path, p.parseUpperName())
+			} else {
+				p.expect(token.Identifier)
+				return nil
+			}
+		}
+
+		if len(path) == 1 {
+			return path[0]
+		}
+
+		return ast.NewSelectorExpr(path...)
+	}
+	return p.parseLowerName()
 }
 
 func (p *parser) parseIdentifier() *ast.Ident {
 	name := "_"
 	pos := p.tok.Position
-	if p.tok.Type == token.Identifier {
+	if p.is(token.Identifier) {
 		name = p.tok.Value
 		p.next()
 	} else {
@@ -251,7 +288,7 @@ func (p *parser) parseIdentifier() *ast.Ident {
 
 func (p *parser) parseUpperName() *ast.Ident {
 	ident := p.parseIdentifier()
-	if !unicode.IsUpper(rune(ident.Name[0])) {
+	if !isUpper(ident.Name) {
 		p.errorMessage(ident.NamePos, "I was expecting an upper case name.")
 	}
 	return ident
@@ -259,7 +296,7 @@ func (p *parser) parseUpperName() *ast.Ident {
 
 func (p *parser) parseLowerName() *ast.Ident {
 	ident := p.parseIdentifier()
-	if !unicode.IsLower(rune(ident.Name[0])) {
+	if !isLower(ident.Name) {
 		p.errorMessage(ident.NamePos, "I was expecting a lower case name.")
 	}
 	return ident
@@ -417,7 +454,14 @@ func (p *parser) parseConstructor() *ast.Constructor {
 
 func (p *parser) parseTypeList() (types []ast.Type) {
 	for p.is(token.LeftParen) || p.is(token.Identifier) || p.is(token.LeftBrace) {
-		typ := p.parseType()
+		var typ ast.Type
+		switch p.tok.Type {
+		case token.LeftParen, token.LeftBrace:
+			typ = p.parseType()
+		case token.Identifier:
+			typ = &ast.BasicType{Name: p.parseQualifiedIdentifier()}
+		}
+
 		if typ == nil {
 			break
 		}
@@ -487,8 +531,8 @@ func (p *parser) parseAtomType() ast.Type {
 		p.expect(token.RightParen)
 		return typ
 	case token.Identifier:
-		name := p.parseIdentifier()
-		if unicode.IsLower(rune(name.Name[0])) {
+		name := p.parseQualifiedIdentifier()
+		if name, ok := name.(*ast.Ident); ok && isLower(name.Name) {
 			return &ast.BasicType{Name: name}
 		}
 
@@ -592,8 +636,7 @@ func (p *parser) parsePattern(greedy bool) (pat ast.Pattern) {
 		if p.tok.Value == "_" {
 			pat = &ast.AnythingPattern{Underscore: p.expect(token.Identifier)}
 		} else {
-			r, _ := utf8.DecodeRuneInString(p.tok.Value)
-			if unicode.IsUpper(r) {
+			if isUpper(p.tok.Value) {
 				pat = p.parseCtorPattern()
 			} else {
 				pat = &ast.VarPattern{
@@ -880,4 +923,14 @@ func (p *parser) errorMessage(pos *token.Position, msg string, args ...interface
 func (p *parser) errorExpectedType(pos *token.Position) {
 	p.errorMessage(pos, "I was expecting a type, but I encountered what looks like a declaration instead.")
 	panic(bailout{})
+}
+
+func isLower(name string) bool {
+	r, _ := utf8.DecodeRuneInString(name)
+	return unicode.IsLower(r)
+}
+
+func isUpper(name string) bool {
+	r, _ := utf8.DecodeRuneInString(name)
+	return unicode.IsUpper(r)
 }

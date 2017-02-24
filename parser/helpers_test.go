@@ -1,6 +1,8 @@
 package parser
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/erizocosmico/elmo/ast"
@@ -110,11 +112,33 @@ func FuncType(elems ...typeAssert) typeAssert {
 	}
 }
 
+func Selector(path ...string) exprAssert {
+	return func(t *testing.T, expr ast.Expr) {
+		e, ok := expr.(fmt.Stringer)
+		require.True(t, ok, "expected expression in selector to be stringer")
+		require.Equal(t, strings.Join(path, "."), e.String(), "expected same selector")
+	}
+}
+
 func BasicType(name string, args ...typeAssert) typeAssert {
 	return func(t *testing.T, typ ast.Type) {
 		basic, ok := typ.(*ast.BasicType)
 		require.True(t, ok, "type is not basic type")
-		require.Equal(t, name, basic.Name.Name, "invalid type name")
+		ident, ok := basic.Name.(*ast.Ident)
+		require.True(t, ok, "expected type name to be an identifier, not %T", basic.Name)
+		require.Equal(t, name, ident.Name, "invalid type name")
+		require.Equal(t, len(args), len(basic.Args), "invalid number of type arguments")
+		for i := range args {
+			args[i](t, basic.Args[i])
+		}
+	}
+}
+
+func SelectorType(sel exprAssert, args ...typeAssert) typeAssert {
+	return func(t *testing.T, typ ast.Type) {
+		basic, ok := typ.(*ast.BasicType)
+		require.True(t, ok, "type is not basic type, is %T", typ)
+		sel(t, basic.Name)
 		require.Equal(t, len(args), len(basic.Args), "invalid number of type arguments")
 		for i := range args {
 			args[i](t, basic.Args[i])

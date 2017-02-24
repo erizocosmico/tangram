@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 	"testing"
@@ -65,7 +66,9 @@ func TestParseModule(t *testing.T) {
 				}
 
 				require.Equal(0, len(p.errors), c.input)
-				require.Equal(c.module, decl.Name.String(), c.input)
+				n, ok := decl.Name.(fmt.Stringer)
+				require.True(ok, "expected module name to be stringer")
+				require.Equal(c.module, n.String(), c.input)
 				require.Equal(c.exposed, exposed, c.input)
 			} else {
 				require.False(p.sess.IsOK(), c.input)
@@ -129,7 +132,9 @@ func TestParseImport(t *testing.T) {
 				}
 
 				require.Equal(0, len(p.errors), c.input)
-				require.Equal(c.module, decl.Module.String(), c.input)
+				mod, ok := decl.Module.(fmt.Stringer)
+				require.True(ok, "expected module name to be stringer")
+				require.Equal(c.module, mod.String(), c.input)
 				require.Equal(c.exposed, exposed, c.input)
 				if c.alias != "" {
 					require.NotNil(decl.Alias, c.input)
@@ -186,6 +191,10 @@ func TestParseInfixDecl(t *testing.T) {
 
 const inputAliasSimpleType = `
 type alias Foo = Int
+`
+
+const inputAliasSimpleTypeSelector = `
+type alias Foo = List.List
 `
 
 const inputAliasParenBasicType = `
@@ -263,6 +272,14 @@ func TestParseTypeAlias(t *testing.T) {
 				"Foo",
 				nil,
 				BasicType("Int"),
+			),
+		},
+		{
+			inputAliasSimpleTypeSelector,
+			Alias(
+				"Foo",
+				nil,
+				SelectorType(Selector("List", "List")),
 			),
 		},
 		{
@@ -700,6 +717,51 @@ func TestParsePattern(t *testing.T) {
 			p := stringParser(c.input)
 			c.assert(st, p.parsePattern(true))
 		})
+	}
+}
+
+func TestParseType(t *testing.T) {
+	cases := []struct {
+		input  string
+		assert typeAssert
+	}{
+		{
+			"List.List",
+			SelectorType(Selector("List", "List")),
+		},
+		{
+			"Map.Map Foo.Bar List.List",
+			SelectorType(
+				Selector("Map", "Map"),
+				SelectorType(Selector("Foo", "Bar")),
+				SelectorType(Selector("List", "List")),
+			),
+		},
+		{
+			"HashMap (Foo a) (List Int)",
+			BasicType("HashMap",
+				BasicType("Foo", BasicType("a")),
+				BasicType("List", BasicType("Int")),
+			),
+		},
+		// TODO(erizocosmico): improve this tests cases and relieve pressure
+		// from ParseTypeUnion and ParseTypeAlias
+	}
+
+	for _, c := range cases {
+		func() {
+			defer assertEOF(t, "", false)
+
+			// the space here is because a type can not be at the start of a
+			// line
+			p := stringParser(" " + c.input)
+			typ := p.parseType()
+			if c.assert == nil {
+				require.Nil(t, typ, "expected type to be nil")
+			} else {
+				c.assert(t, typ)
+			}
+		}()
 	}
 }
 
