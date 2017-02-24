@@ -40,7 +40,9 @@ func TestParseFile_OnlyFixity(t *testing.T) {
 		f = p.parseFile()
 
 		require.Len(f.Imports, 2, "should have 2 imports")
-		require.Equal("Foo", f.Module.Name.String(), "module name")
+		name, ok := f.Module.Name.(fmt.Stringer)
+		require.True(ok, "expected module name to be stringer")
+		require.Equal("Foo", name.String(), "module name")
 
 		require.Len(f.Decls, 2, "should have 2 decls")
 		assertFixity(t, f.Decls[0], "?", 6, ast.RightAssoc)
