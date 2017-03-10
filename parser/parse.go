@@ -7,6 +7,7 @@ import (
 
 	"github.com/erizocosmico/elmo/ast"
 	"github.com/erizocosmico/elmo/diagnostic"
+	"github.com/erizocosmico/elmo/operator"
 	"github.com/erizocosmico/elmo/scanner"
 	"github.com/erizocosmico/elmo/source"
 )
@@ -29,22 +30,30 @@ const (
 type Session struct {
 	*diagnostic.Diagnoser
 	*source.CodeMap
+	*operator.Table
 }
 
 // NewSession creates a new parsing session with a way of diagnosing errors
 // and a code map.
-func NewSession(d *diagnostic.Diagnoser, cm *source.CodeMap) *Session {
-	return &Session{d, cm}
+func NewSession(
+	d *diagnostic.Diagnoser,
+	cm *source.CodeMap,
+	ops *operator.Table,
+) *Session {
+	return &Session{d, cm, ops}
 }
 
 // ParseFile returns the AST representation of the given file.
 func ParseFile(fileName string, src io.Reader, mode ParseMode) (f *ast.File, err error) {
+	// TODO(erizocosmico): codemap already knows how to load the file,
+	// it's not necessary to pass it as an argument
 	// TODO(erizocosmico): correctly set root
 	cm := source.NewCodeMap(source.NewFsLoader("."))
 	defer cm.Close()
 	sess := NewSession(
 		diagnostic.NewDiagnoser(cm, diagnostic.Stderr(true, true)),
 		cm,
+		operator.NewTable(),
 	)
 	p := newParser(sess)
 	s := scanner.New(fileName, src)
@@ -65,7 +74,7 @@ func ParseFile(fileName string, src io.Reader, mode ParseMode) (f *ast.File, err
 		}
 	}()
 
-	go s.Run()
+	s.Run()
 	p.init(fileName, s, mode)
 	f = p.parseFile()
 	return

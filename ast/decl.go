@@ -152,6 +152,16 @@ func (c Constructor) End() token.Pos {
 	return c.Name.End()
 }
 
+type DestructuringAssignment struct {
+	Assign  token.Pos
+	Pattern Pattern
+	Expr    Expr
+}
+
+func (a *DestructuringAssignment) Pos() token.Pos { return a.Pattern.Pos() }
+func (a *DestructuringAssignment) End() token.Pos { return a.Expr.End() }
+func (*DestructuringAssignment) isDecl()          {}
+
 // Definition is a node representing a definition of a value. A definition can
 // also be annotated with a type annotation.
 type Definition struct {

@@ -8,6 +8,7 @@ import (
 
 	"github.com/erizocosmico/elmo/ast"
 	"github.com/erizocosmico/elmo/diagnostic"
+	"github.com/erizocosmico/elmo/operator"
 	"github.com/erizocosmico/elmo/scanner"
 	"github.com/erizocosmico/elmo/token"
 )
@@ -31,6 +32,7 @@ type parser struct {
 	// ignoreNewDecl indicates if the parser must ignore tokens that are new
 	// declarations, and just treat them as if they weren't.
 	ignoreNewDecl bool
+	lineStart     []int
 	tok           *token.Token
 	errors        []error
 	regions       []*token.Position
@@ -45,6 +47,7 @@ type bailout struct{}
 func (p *parser) init(fileName string, s *scanner.Scanner, mode ParseMode) {
 	p.inNewDecl = false
 	p.isStart = true
+	p.resetLineStart()
 	p.ignoreNewDecl = false
 	p.scanner = s
 	p.fileName = fileName
@@ -317,30 +320,6 @@ func (p *parser) parseOp() *ast.Ident {
 	return &ast.Ident{NamePos: pos, Name: name, Obj: obj}
 }
 
-func (p *parser) parseLiteral() *ast.BasicLit {
-	var typ ast.BasicLitType
-	switch p.tok.Type {
-	case token.True, token.False:
-		typ = ast.Bool
-	case token.Int:
-		typ = ast.Int
-	case token.Float:
-		typ = ast.Float
-	case token.String:
-		typ = ast.String
-	case token.Char:
-		typ = ast.Char
-	}
-
-	t := p.tok
-	p.next()
-	return &ast.BasicLit{
-		Type:     typ,
-		Position: t.Position,
-		Value:    t.Value,
-	}
-}
-
 func (p *parser) parseDecl() ast.Decl {
 	p.startRegion()
 	var decl ast.Decl
@@ -351,8 +330,22 @@ func (p *parser) parseDecl() ast.Decl {
 	case token.Infixl, token.Infixr, token.Infix:
 		decl = p.parseInfixDecl()
 
-	case token.Identifier, token.LeftParen:
-		decl = p.parseDefinition()
+	case token.Identifier:
+		if p.tok.Value == "_" {
+			decl = p.parseDestructuringAssignment()
+		} else {
+			decl = p.parseDefinition()
+		}
+
+	case token.LeftParen:
+		if p.peek().Type == token.Op {
+			decl = p.parseDefinition()
+		} else {
+			decl = p.parseDestructuringAssignment()
+		}
+
+	case token.LeftBrace:
+		decl = p.parseDestructuringAssignment()
 
 	default:
 		p.errorExpectedOneOf(p.tok, token.TypeDef, token.Identifier)
@@ -367,6 +360,32 @@ func (p *parser) parseDecl() ast.Decl {
 	}
 
 	return decl
+}
+
+const errorMsgInvalidDestructuringPattern = `This is not a valid pattern for a destructuring assignment.
+I am looking for one of the following things:
+
+- a lower case name
+- an underscore ("_")
+- a tuple pattern (e.g. "(first, second)")
+- a record pattern (e.g. "{x, y}")`
+
+func (p *parser) parseDestructuringAssignment() *ast.DestructuringAssignment {
+	a := new(ast.DestructuringAssignment)
+	a.Pattern = p.parsePattern(true)
+	_, ok := a.Pattern.(ast.ArgPattern)
+	if !ok {
+		p.errorMessage(
+			p.tok.Position,
+			errorMsgInvalidDestructuringPattern,
+		)
+		panic(bailout{})
+	}
+
+	a.Assign = p.expect(token.Assign)
+	a.Expr = p.parseExpr()
+
+	return a
 }
 
 func (p *parser) parseInfixDecl() ast.Decl {
@@ -453,7 +472,7 @@ func (p *parser) parseConstructor() *ast.Constructor {
 }
 
 func (p *parser) parseTypeList() (types []ast.Type) {
-	for p.is(token.LeftParen) || p.is(token.Identifier) || p.is(token.LeftBrace) {
+	for (p.is(token.LeftParen) || p.is(token.Identifier) || p.is(token.LeftBrace)) && !p.atLineStart() {
 		var typ ast.Type
 		switch p.tok.Type {
 		case token.LeftParen, token.LeftBrace:
@@ -606,7 +625,23 @@ func (p *parser) parseDefinition() ast.Decl {
 		decl.Name = name
 	}
 
-	for !p.is(token.Assign) {
+	decl.Args = p.parseFuncArgs(token.Assign)
+	decl.Assign = p.expect(token.Assign)
+	decl.Body = p.parseExpr()
+	return decl
+}
+
+const errorMsgInvalidArgPattern = `This is not a valid pattern for a function argument.
+I am looking for one of the following things:
+
+- a lower case name
+- an underscore ("_")
+- a tuple pattern (e.g. "(first, second)")
+- a record pattern (e.g. "{x, y}")`
+
+func (p *parser) parseFuncArgs(end token.Type) []ast.ArgPattern {
+	var args []ast.ArgPattern
+	for !p.is(end) && !p.is(token.EOF) {
 		tok := p.tok
 		// in arguments, we parse the patterns as non-greedy so it forces the
 		// developer to wrap around parenthesis the alias pattern
@@ -615,16 +650,14 @@ func (p *parser) parseDefinition() ast.Decl {
 		if !ok {
 			p.errorMessage(
 				tok.Position,
-				"This pattern is not valid. Only tuple and record patterns are valid function arguments.",
+				errorMsgInvalidArgPattern,
 			)
 		}
 
-		decl.Args = append(decl.Args, arg)
+		args = append(args, arg)
 	}
 
-	decl.Assign = p.expect(token.Assign)
-	decl.Body = p.parseExpr()
-	return decl
+	return args
 }
 
 // parsePattern parses the next pattern. If `greedy` is true, it will try to
@@ -774,16 +807,6 @@ func (p *parser) parseAliasPattern(pat ast.Pattern) ast.Pattern {
 	}
 }
 
-func (p *parser) parseExpr() ast.Expr {
-	switch p.tok.Type {
-	case token.Int, token.Char, token.String, token.True, token.False:
-		return p.parseLiteral()
-	}
-
-	p.errorMessage(p.tok.Position, "cannot parse expression with token of type "+p.tok.Type.String())
-	panic(bailout{})
-}
-
 func (p *parser) next() {
 	// if the current position is a new declaration but it has not been
 	// acknowledged we need to report it
@@ -809,6 +832,31 @@ func (p *parser) next() {
 		}
 	} else if !p.ignoreNewDecl && p.atLineStart() {
 		p.inNewDecl = true
+	}
+}
+
+func (p *parser) backup(until *token.Token) {
+	p.scanner.Backup(until)
+	p.next()
+}
+
+func (p *parser) peek() *token.Token {
+	t := p.scanner.Peek()
+	if t == nil {
+		p.errorUnexpectedEOF()
+	}
+	return t
+}
+
+func (p *parser) setLineStart(col int) {
+	p.lineStart = append(p.lineStart, col)
+}
+
+func (p *parser) resetLineStart() {
+	if len(p.lineStart) <= 1 {
+		p.lineStart = []int{1}
+	} else {
+		p.lineStart = p.lineStart[:len(p.lineStart)-1]
 	}
 }
 
@@ -864,7 +912,19 @@ func (p *parser) is(typ token.Type) bool {
 }
 
 func (p *parser) atLineStart() bool {
-	return p.tok.Column == 1
+	return p.tok.Column <= p.lineStart[len(p.lineStart)-1]
+}
+
+func (p *parser) opInfo(name string) *operator.OpInfo {
+	info := p.sess.Table.Lookup(name, "" /* TODO: path */)
+	if info != nil {
+		return info
+	}
+
+	return &operator.OpInfo{
+		Precedence:    0,
+		Associativity: operator.Left,
+	}
 }
 
 func (p *parser) startRegion() {
@@ -877,7 +937,7 @@ func (p *parser) endRegion() {
 
 func (p *parser) regionStart() *token.Position {
 	if len(p.regions) == 0 {
-		return &token.Position{Offset: token.NoPos}
+		return &token.Position{Offset: token.NoPos, Line: 1}
 	}
 	return p.regions[len(p.regions)-1]
 }
@@ -917,7 +977,11 @@ func (p *parser) errorExpectedOneOf(t *token.Token, types ...token.Type) {
 
 func (p *parser) errorMessage(pos *token.Position, msg string, args ...interface{}) {
 	p.regionError(pos, diagnostic.ParseError(fmt.Sprintf(msg, args...)))
+}
 
+func (p *parser) errorUnexpectedEOF() {
+	p.errorMessage(p.tok.Position, "Unexpected end of file.")
+	panic(bailout{})
 }
 
 func (p *parser) errorExpectedType(pos *token.Position) {

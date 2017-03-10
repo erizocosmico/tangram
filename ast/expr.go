@@ -3,6 +3,8 @@ package ast
 import (
 	"bytes"
 	"fmt"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/erizocosmico/elmo/token"
 )
@@ -20,6 +22,7 @@ type Ident struct {
 	Obj     *Object
 }
 
+// NewIdent creates a new identifier with the given name and position.
 func NewIdent(name string, pos *token.Position) *Ident {
 	return &Ident{pos, name, nil}
 }
@@ -28,6 +31,12 @@ func (i *Ident) Pos() token.Pos { return i.NamePos.Offset }
 func (i *Ident) End() token.Pos { return i.Pos() + token.Pos(len(i.Name)) }
 func (*Ident) isExpr()          {}
 func (i *Ident) String() string { return i.Name }
+
+// IsOp reports whether the identifiers corresponds to an operator or not.
+func (i *Ident) IsOp() bool {
+	r, _ := utf8.DecodeRuneInString(i.Name)
+	return !unicode.IsLetter(r) && !unicode.IsDigit(r)
+}
 
 // SelectorExpr represents an expression preceded by a selector.
 type SelectorExpr struct {
@@ -129,16 +138,203 @@ const (
 func (t BasicLitType) String() string {
 	switch t {
 	case Int:
-		return "int"
+		return "Int"
 	case Float:
-		return "float"
+		return "Float"
 	case String:
-		return "string"
+		return "String"
 	case Bool:
-		return "bool"
+		return "Bool"
 	case Char:
-		return "char"
+		return "Char"
 	default:
 		return "error"
 	}
 }
+
+type TupleLit struct {
+	Lparen token.Pos
+	Rparen token.Pos
+	Elems  []Expr
+}
+
+func (l *TupleLit) Pos() token.Pos { return l.Lparen }
+func (l *TupleLit) End() token.Pos { return l.Rparen }
+func (*TupleLit) isExpr()          {}
+
+type FuncApp struct {
+	Func Expr
+	Args []Expr
+}
+
+func (e *FuncApp) Pos() token.Pos { return e.Func.Pos() }
+func (e *FuncApp) End() token.Pos { return e.Args[len(e.Args)-1].End() }
+func (*FuncApp) isExpr()          {}
+
+type CtorApp struct {
+	Ctor Expr
+	Args []Expr
+}
+
+func (e *CtorApp) Pos() token.Pos { return e.Ctor.Pos() }
+func (e *CtorApp) End() token.Pos { return e.Args[len(e.Args)-1].End() }
+func (*CtorApp) isExpr()          {}
+
+type RecordLit struct {
+	Lbrace token.Pos
+	Rbrace token.Pos
+	Fields []*FieldAssign
+}
+
+func (e *RecordLit) Pos() token.Pos { return e.Lbrace }
+func (e *RecordLit) End() token.Pos { return e.Rbrace }
+func (*RecordLit) isExpr()          {}
+
+type FieldAssign struct {
+	Eq    token.Pos
+	Field *Ident
+	Expr  Expr
+}
+
+type RecordUpdate struct {
+	Lbrace token.Pos
+	Rbrace token.Pos
+	Pipe   token.Pos
+	Record *Ident
+	Fields []*FieldAssign
+}
+
+func (e *RecordUpdate) Pos() token.Pos { return e.Lbrace }
+func (e *RecordUpdate) End() token.Pos { return e.Rbrace }
+func (*RecordUpdate) isExpr()          {}
+
+type LetExpr struct {
+	Let   token.Pos
+	Decls []Decl
+	In    token.Pos
+	Body  Expr
+}
+
+func (e *LetExpr) Pos() token.Pos { return e.Let }
+func (e *LetExpr) End() token.Pos { return e.Body.End() }
+func (*LetExpr) isExpr()          {}
+
+type IfExpr struct {
+	If       token.Pos
+	Cond     Expr
+	Then     token.Pos
+	ThenExpr Expr
+	Else     token.Pos
+	ElseExpr Expr
+}
+
+func (e *IfExpr) Pos() token.Pos { return e.If }
+func (e *IfExpr) End() token.Pos { return e.ElseExpr.End() }
+func (*IfExpr) isExpr()          {}
+
+type CaseExpr struct {
+	Case     token.Pos
+	Of       token.Pos
+	Expr     Expr
+	Branches []*CaseBranch
+}
+
+func (e *CaseExpr) Pos() token.Pos { return e.Case }
+func (e *CaseExpr) End() token.Pos { return e.Branches[len(e.Branches)-1].End() }
+func (*CaseExpr) isExpr()          {}
+
+type CaseBranch struct {
+	Arrow   token.Pos
+	Pattern Pattern
+	Expr    Expr
+}
+
+func (e *CaseBranch) Pos() token.Pos { return e.Pattern.Pos() }
+func (e *CaseBranch) End() token.Pos { return e.Expr.End() }
+
+type FuncLit struct {
+	Backslash token.Pos
+	Arrow     token.Pos
+	Args      []Pattern
+	Body      Expr
+}
+
+func (e *FuncLit) Pos() token.Pos { return e.Backslash }
+func (e *FuncLit) End() token.Pos { return e.Body.End() }
+func (*FuncLit) isExpr()          {}
+
+type ListLit struct {
+	Lbracket token.Pos
+	Rbracket token.Pos
+	Elems    []Expr
+}
+
+func (e *ListLit) Pos() token.Pos { return e.Lbracket }
+func (e *ListLit) End() token.Pos { return e.Rbracket }
+func (*ListLit) isExpr()          {}
+
+type UnaryExpr struct {
+	Op   *Ident
+	Expr Expr
+}
+
+func (e *UnaryExpr) Pos() token.Pos { return e.Op.Pos() }
+func (e *UnaryExpr) End() token.Pos { return e.Expr.End() }
+func (*UnaryExpr) isExpr()          {}
+
+type BinaryExpr struct {
+	Op  *Ident
+	Lhs Expr
+	Rhs Expr
+}
+
+func (e *BinaryExpr) Pos() token.Pos { return e.Lhs.Pos() }
+func (e *BinaryExpr) End() token.Pos { return e.Rhs.End() }
+func (*BinaryExpr) isExpr()          {}
+
+type AccessorExpr struct {
+	Field *Ident
+}
+
+func (e *AccessorExpr) Pos() token.Pos { return e.Field.Pos() }
+func (e *AccessorExpr) End() token.Pos { return e.Field.End() }
+func (*AccessorExpr) isExpr()          {}
+
+type Operator struct {
+	Name *Ident
+}
+
+func (e *Operator) Pos() token.Pos { return e.Name.Pos() }
+func (e *Operator) End() token.Pos { return e.Name.End() }
+func (*Operator) isExpr()          {}
+
+type TupleCtor struct {
+	Lparen token.Pos
+	Rparen token.Pos
+	Elems  int
+}
+
+func (e *TupleCtor) Pos() token.Pos { return e.Lparen }
+func (e *TupleCtor) End() token.Pos { return e.Rparen }
+func (e *TupleCtor) isExpr()        {}
+
+type Lambda struct {
+	Backslash token.Pos
+	Arrow     token.Pos
+	Args      []ArgPattern
+	Expr      Expr
+}
+
+func (e *Lambda) Pos() token.Pos { return e.Backslash }
+func (e *Lambda) End() token.Pos { return e.Expr.End() }
+func (*Lambda) isExpr()          {}
+
+type ParensExpr struct {
+	Lparen token.Pos
+	Rparen token.Pos
+	Expr   Expr
+}
+
+func (e *ParensExpr) Pos() token.Pos { return e.Lparen }
+func (e *ParensExpr) End() token.Pos { return e.Rparen }
+func (*ParensExpr) isExpr()          {}

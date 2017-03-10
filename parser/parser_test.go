@@ -8,6 +8,7 @@ import (
 
 	"github.com/erizocosmico/elmo/ast"
 	"github.com/erizocosmico/elmo/diagnostic"
+	"github.com/erizocosmico/elmo/operator"
 	"github.com/erizocosmico/elmo/scanner"
 	"github.com/erizocosmico/elmo/source"
 	"github.com/stretchr/testify/require"
@@ -47,7 +48,7 @@ func TestParseModule(t *testing.T) {
 		func() {
 			defer assertEOF(t, c.input, c.eof)
 
-			p := stringParser(c.input)
+			p := stringParser(t, c.input)
 			defer p.sess.Emit()
 			decl := p.parseModule()
 
@@ -114,7 +115,7 @@ func TestParseImport(t *testing.T) {
 		func() {
 			defer assertEOF(t, c.input, c.eof)
 
-			p := stringParser(c.input)
+			p := stringParser(t, c.input)
 			decl := p.parseImport()
 
 			if c.ok {
@@ -174,7 +175,7 @@ func TestParseInfixDecl(t *testing.T) {
 		func() {
 			defer assertEOF(t, c.input, c.eof)
 
-			p := stringParser(c.input)
+			p := stringParser(t, c.input)
 			decl := p.parseInfixDecl().(*ast.InfixDecl)
 			if c.ok {
 				require.Equal(c.assoc, decl.Assoc, c.input)
@@ -496,7 +497,7 @@ func TestParseTypeAlias(t *testing.T) {
 		func() {
 			defer assertEOF(t, "", false)
 
-			p := stringParser(c.input)
+			p := stringParser(t, c.input)
 			c.assert(t, p.parseTypeDecl())
 		}()
 	}
@@ -581,7 +582,7 @@ func TestParseTypeUnion(t *testing.T) {
 		func() {
 			defer assertEOF(t, "", false)
 
-			p := stringParser(c.input)
+			p := stringParser(t, c.input)
 			c.assert(t, p.parseTypeDecl())
 		}()
 	}
@@ -629,9 +630,59 @@ func TestParseDefinition(t *testing.T) {
 		func() {
 			defer assertEOF(t, "", false)
 
-			p := stringParser(c.input)
+			p := stringParser(t, c.input)
 			c.assert(t, p.parseDefinition())
 		}()
+	}
+}
+
+func TestParseDestructuringAssignment(t *testing.T) {
+	cases := []struct {
+		input  string
+		assert declAssert
+	}{
+		{
+			`( a, b ) = ( 1, 2 )`,
+			Destructuring(
+				TuplePattern(
+					VarPattern("a"),
+					VarPattern("b"),
+				),
+				TupleLiteral(
+					Literal(ast.Int, "1"),
+					Literal(ast.Int, "2"),
+				),
+			),
+		},
+		{
+			`{ x, y } = { x = 1, y = 2 }`,
+			Destructuring(
+				RecordPattern(
+					VarPattern("x"),
+					VarPattern("y"),
+				),
+				RecordLiteral(
+					FieldAssign("x", Literal(ast.Int, "1")),
+					FieldAssign("y", Literal(ast.Int, "2")),
+				),
+			),
+		},
+		{
+			`_ = 2`,
+			Destructuring(
+				AnythingPattern,
+				Literal(ast.Int, "2"),
+			),
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.input, func(t *testing.T) {
+			defer assertEOF(t, "", false)
+
+			p := stringParser(t, c.input)
+			c.assert(t, p.parseDestructuringAssignment())
+		})
 	}
 }
 
@@ -714,7 +765,7 @@ func TestParsePattern(t *testing.T) {
 			c.input += "\n"
 			defer assertEOF(t, "", false)
 
-			p := stringParser(c.input)
+			p := stringParser(t, c.input)
 			c.assert(st, p.parsePattern(true))
 		})
 	}
@@ -754,7 +805,7 @@ func TestParseType(t *testing.T) {
 
 			// the space here is because a type can not be at the start of a
 			// line
-			p := stringParser(" " + c.input)
+			p := stringParser(t, " "+c.input)
 			typ := p.parseType()
 			if c.assert == nil {
 				require.Nil(t, typ, "expected type to be nil")
@@ -763,6 +814,297 @@ func TestParseType(t *testing.T) {
 			}
 		}()
 	}
+}
+
+func TestParseExpr(t *testing.T) {
+	cases := []struct {
+		input  string
+		assert exprAssert
+	}{
+		{`5`, Literal(ast.Int, "5")},
+		{`"hello world"`, Literal(ast.String, `"hello world"`)},
+		{`True`, Literal(ast.Bool, `True`)},
+		{`False`, Literal(ast.Bool, `False`)},
+		{`3.1416`, Literal(ast.Float, `3.1416`)},
+		{`'a'`, Literal(ast.Char, `'a'`)},
+		{`()`, TupleLiteral()},
+		{`[]`, ListLiteral()},
+		{
+			`(1, 2, 3)`,
+			TupleLiteral(
+				Literal(ast.Int, "1"),
+				Literal(ast.Int, "2"),
+				Literal(ast.Int, "3"),
+			),
+		},
+		{
+			`[1, 2, 3]`,
+			ListLiteral(
+				Literal(ast.Int, "1"),
+				Literal(ast.Int, "2"),
+				Literal(ast.Int, "3"),
+			),
+		},
+		{
+			`((1, 2), (2, 3))`,
+			TupleLiteral(
+				TupleLiteral(
+					Literal(ast.Int, "1"),
+					Literal(ast.Int, "2"),
+				),
+				TupleLiteral(
+					Literal(ast.Int, "2"),
+					Literal(ast.Int, "3"),
+				),
+			),
+		},
+		{
+			`[[1, 2], [2, 3]]`,
+			ListLiteral(
+				ListLiteral(
+					Literal(ast.Int, "1"),
+					Literal(ast.Int, "2"),
+				),
+				ListLiteral(
+					Literal(ast.Int, "2"),
+					Literal(ast.Int, "3"),
+				),
+			),
+		},
+		{`(,,)`, TupleCtor(3)},
+		{
+			`{ a = 1, b = [ 1, 2 ], c = { x = 1, y = 2 } }`,
+			RecordLiteral(
+				FieldAssign("a", Literal(ast.Int, "1")),
+				FieldAssign("b", ListLiteral(
+					Literal(ast.Int, "1"),
+					Literal(ast.Int, "2"),
+				)),
+				FieldAssign("c", RecordLiteral(
+					FieldAssign("x", Literal(ast.Int, "1")),
+					FieldAssign("y", Literal(ast.Int, "2")),
+				)),
+			),
+		},
+		{
+			`{ point | x = 5, y = 2 }`,
+			RecordUpdate(
+				"point",
+				FieldAssign("x", Literal(ast.Int, "5")),
+				FieldAssign("y", Literal(ast.Int, "2")),
+			),
+		},
+		{
+			`\a (x, y) {z, d} _-> \k-> 5`,
+			Lambda(
+				Patterns(
+					VarPattern("a"),
+					TuplePattern(
+						VarPattern("x"),
+						VarPattern("y"),
+					),
+					RecordPattern(
+						VarPattern("z"),
+						VarPattern("d"),
+					),
+					AnythingPattern,
+				),
+				Lambda(
+					Patterns(VarPattern("k")),
+					Literal(ast.Int, "5"),
+				),
+			),
+		},
+		{
+			`let
+				foo = 5
+
+				bar a b = 6
+
+				( a, b ) = qux
+
+				{ x, y } = baz
+
+				mux : Int
+				mux = 7
+
+				_ = ignored
+			in
+				5`,
+			Let(
+				Literal(ast.Int, "5"),
+				Definition("foo", nil, nil, Literal(ast.Int, "5")),
+				Definition("bar", nil,
+					Patterns(
+						VarPattern("a"),
+						VarPattern("b"),
+					),
+					Literal(ast.Int, "6"),
+				),
+				Destructuring(
+					TuplePattern(
+						VarPattern("a"),
+						VarPattern("b"),
+					),
+					Identifier("qux"),
+				),
+				Destructuring(
+					RecordPattern(
+						VarPattern("x"),
+						VarPattern("y"),
+					),
+					Identifier("baz"),
+				),
+				Definition("mux",
+					TypeAnnotation(BasicType("Int")),
+					nil,
+					Literal(ast.Int, "7"),
+				),
+				Destructuring(
+					AnythingPattern,
+					Identifier("ignored"),
+				),
+			),
+		},
+		{
+			`f <| g a b`,
+			BinaryExpr(
+				"<|",
+				Identifier("f"),
+				FuncApp(
+					Identifier("g"),
+					Identifier("a"),
+					Identifier("b"),
+				),
+			),
+		},
+		{
+			`a + b + c`,
+			BinaryExpr(
+				"+",
+				BinaryExpr(
+					"+",
+					Identifier("a"),
+					Identifier("b"),
+				),
+				Identifier("c"),
+			),
+		},
+		{
+			`a + b * c - d`,
+			BinaryExpr(
+				"-",
+				BinaryExpr(
+					"+",
+					Identifier("a"),
+					BinaryExpr(
+						"*",
+						Identifier("b"),
+						Identifier("c"),
+					),
+				),
+				Identifier("d"),
+			),
+		},
+		{
+			`map ls fn`,
+			FuncApp(
+				Identifier("map"),
+				Identifier("ls"),
+				Identifier("fn"),
+			),
+		},
+		{
+			`(f a b) c d`,
+			FuncApp(
+				Parens(
+					FuncApp(
+						Identifier("f"),
+						Identifier("a"),
+						Identifier("b"),
+					),
+				),
+				Identifier("c"),
+				Identifier("d"),
+			),
+		},
+		{
+			`a + -b * c - d`,
+			BinaryExpr(
+				"-",
+				BinaryExpr(
+					"+",
+					Identifier("a"),
+					BinaryExpr(
+						"*",
+						UnaryExpr(
+							"-",
+							Identifier("b"),
+						),
+						Identifier("c"),
+					),
+				),
+				Identifier("d"),
+			),
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.input, func(st *testing.T) {
+			c.input += "\n"
+			defer assertEOF(t, "", false)
+
+			p := stringParser(t, c.input)
+			c.assert(st, p.parseExpr())
+		})
+	}
+}
+
+func TestParseExpr_NonAssocOp(t *testing.T) {
+	t.Run("followed by other non-assoc op", func(t *testing.T) {
+		input := `a == b == c`
+		defer assertEOF(t, input, true)
+
+		p := stringParser(t, input)
+		defer p.sess.Emit()
+		p.parseExpr()
+	})
+
+	t.Run("followed by other assoc op", func(t *testing.T) {
+		input := `a == b + c`
+		defer assertEOF(t, input, false)
+
+		p := stringParser(t, input)
+		expr := p.parseExpr()
+
+		BinaryExpr(
+			"==",
+			Identifier("a"),
+			BinaryExpr(
+				"+",
+				Identifier("b"),
+				Identifier("c"),
+			),
+		)(t, expr)
+	})
+
+	t.Run("followed by other non-assoc op with different precedence", func(t *testing.T) {
+		input := `a == b :> c`
+		defer assertEOF(t, input, false)
+
+		p := stringParser(t, input)
+		expr := p.parseExpr()
+
+		BinaryExpr(
+			"==",
+			Identifier("a"),
+			BinaryExpr(
+				":>",
+				Identifier("b"),
+				Identifier("c"),
+			),
+		)(t, expr)
+	})
 }
 
 func assertEOF(t *testing.T, input string, eof bool) {
@@ -775,18 +1117,29 @@ func assertEOF(t *testing.T, input string, eof bool) {
 		default:
 			panic(r)
 		}
+	} else if eof {
+		require.FailNow(t, "expected error", input)
 	}
 }
 
-func stringParser(str string) *parser {
+func stringParser(t *testing.T, str string) *parser {
 	scanner := scanner.New("test", strings.NewReader(str))
-	go scanner.Run()
+	scanner.Run()
 	loader := source.NewMemLoader()
 	loader.Add("test", str)
 	cm := source.NewCodeMap(loader)
-	cm.Add("test")
+	require.NoError(t, cm.Add("test"))
 	d := diagnostic.NewDiagnoser(cm, diagnostic.Stderr(true, true))
-	sess := NewSession(d, cm)
+
+	opTable := operator.NewTable()
+	opTable.Add("<|", "", operator.Right, 0)
+	opTable.Add("+", "", operator.Left, 6)
+	opTable.Add("-", "", operator.Left, 6)
+	opTable.Add("*", "", operator.Left, 7)
+	opTable.Add("==", "", operator.NonAssoc, 4)
+	opTable.Add(":>", "", operator.NonAssoc, 5)
+
+	sess := NewSession(d, cm, opTable)
 	var p = newParser(sess)
 	p.init("test", scanner, FullParse)
 	return p
