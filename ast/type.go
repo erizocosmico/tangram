@@ -49,8 +49,10 @@ type RecordTypeField struct {
 	Name  *Ident
 	Type  Type
 	Colon token.Pos
-	Comma token.Pos
 }
+
+func (t RecordTypeField) Pos() token.Pos { return t.Name.Pos() }
+func (t RecordTypeField) End() token.Pos { return t.Type.End() }
 
 // TupleType is a node representing a tuple with two ore more types.
 type TupleType struct {

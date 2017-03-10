@@ -573,13 +573,12 @@ func (p *parser) parseRecordType() *ast.RecordType {
 		Lbrace: p.expect(token.LeftBrace),
 	}
 
-	for !p.is(token.RightBrace) {
-		comma := token.NoPos
+	for !p.is(token.RightBrace) && !p.is(token.EOF) {
 		if len(t.Fields) > 0 {
-			comma = p.expect(token.Comma)
+			p.expect(token.Comma)
 		}
 
-		f := &ast.RecordTypeField{Comma: comma}
+		f := &ast.RecordTypeField{}
 		f.Name = p.parseLowerName()
 		f.Colon = p.expect(token.Colon)
 		f.Type = p.expectType()
@@ -639,8 +638,8 @@ I am looking for one of the following things:
 - a tuple pattern (e.g. "(first, second)")
 - a record pattern (e.g. "{x, y}")`
 
-func (p *parser) parseFuncArgs(end token.Type) []ast.ArgPattern {
-	var args []ast.ArgPattern
+func (p *parser) parseFuncArgs(end token.Type) []ast.Pattern {
+	var args []ast.Pattern
 	for !p.is(end) && !p.is(token.EOF) {
 		tok := p.tok
 		// in arguments, we parse the patterns as non-greedy so it forces the
