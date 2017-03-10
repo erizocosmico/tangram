@@ -168,7 +168,7 @@ type Definition struct {
 	Annotation *TypeAnnotation
 	Name       *Ident
 	Assign     token.Pos
-	Args       []ArgPattern
+	Args       []Pattern
 	Body       Expr
 }
 
@@ -188,3 +188,6 @@ type TypeAnnotation struct {
 	Colon token.Pos
 	Type  Type
 }
+
+func (ann *TypeAnnotation) Pos() token.Pos { return ann.Name.Pos() }
+func (ann *TypeAnnotation) End() token.Pos { return ann.Type.End() }

@@ -171,15 +171,6 @@ func (e *FuncApp) Pos() token.Pos { return e.Func.Pos() }
 func (e *FuncApp) End() token.Pos { return e.Args[len(e.Args)-1].End() }
 func (*FuncApp) isExpr()          {}
 
-type CtorApp struct {
-	Ctor Expr
-	Args []Expr
-}
-
-func (e *CtorApp) Pos() token.Pos { return e.Ctor.Pos() }
-func (e *CtorApp) End() token.Pos { return e.Args[len(e.Args)-1].End() }
-func (*CtorApp) isExpr()          {}
-
 type RecordLit struct {
 	Lbrace token.Pos
 	Rbrace token.Pos
@@ -195,6 +186,9 @@ type FieldAssign struct {
 	Field *Ident
 	Expr  Expr
 }
+
+func (n *FieldAssign) Pos() token.Pos { return n.Field.Pos() }
+func (n *FieldAssign) End() token.Pos { return n.Expr.End() }
 
 type RecordUpdate struct {
 	Lbrace token.Pos
@@ -252,17 +246,6 @@ type CaseBranch struct {
 func (e *CaseBranch) Pos() token.Pos { return e.Pattern.Pos() }
 func (e *CaseBranch) End() token.Pos { return e.Expr.End() }
 
-type FuncLit struct {
-	Backslash token.Pos
-	Arrow     token.Pos
-	Args      []Pattern
-	Body      Expr
-}
-
-func (e *FuncLit) Pos() token.Pos { return e.Backslash }
-func (e *FuncLit) End() token.Pos { return e.Body.End() }
-func (*FuncLit) isExpr()          {}
-
 type ListLit struct {
 	Lbracket token.Pos
 	Rbracket token.Pos
@@ -300,14 +283,6 @@ func (e *AccessorExpr) Pos() token.Pos { return e.Field.Pos() }
 func (e *AccessorExpr) End() token.Pos { return e.Field.End() }
 func (*AccessorExpr) isExpr()          {}
 
-type Operator struct {
-	Name *Ident
-}
-
-func (e *Operator) Pos() token.Pos { return e.Name.Pos() }
-func (e *Operator) End() token.Pos { return e.Name.End() }
-func (*Operator) isExpr()          {}
-
 type TupleCtor struct {
 	Lparen token.Pos
 	Rparen token.Pos
@@ -321,7 +296,7 @@ func (e *TupleCtor) isExpr()        {}
 type Lambda struct {
 	Backslash token.Pos
 	Arrow     token.Pos
-	Args      []ArgPattern
+	Args      []Pattern
 	Expr      Expr
 }
 

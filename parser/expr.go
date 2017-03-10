@@ -31,7 +31,9 @@ func (p *parser) parseTerm() ast.Expr {
 				Expr: p.parseTerm(),
 			}
 		}
-		return &ast.Operator{Name: op}
+
+		p.errorMessage(p.tok.Position, fmt.Sprintf("I ran into an unexpected operator %s. I was expecting an expression.", op.Name))
+		panic(bailout{})
 	case token.Identifier:
 		return p.parseIdentTerm()
 	}
