@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"strings"
-	"sync"
 	"unicode"
 
 	"github.com/erizocosmico/elmo/token"
@@ -42,17 +41,19 @@ const (
 
 // Scanner is in charge of extracting tokens from a source.
 type Scanner struct {
-	mut     sync.RWMutex
-	source  string
-	reader  *bufio.Reader
-	state   stateFunc
+	source string
+	reader *bufio.Reader
+	state  stateFunc
+
 	pos     int
 	start   int
 	width   int
 	line    int
 	linePos int
-	tokens  chan *token.Token
 	word    []rune
+
+	idx    int
+	tokens []*token.Token
 }
 
 // New creates a new scanner for the input.
@@ -61,12 +62,11 @@ func New(source string, input io.Reader) *Scanner {
 		source: source,
 		reader: bufio.NewReader(input),
 		state:  lexExpr,
-		tokens: make(chan *token.Token),
 		line:   1,
 	}
 }
 
-// next returns the next rune in the input or EOF if none left.
+// next retu"Hello, playground"rns the next rune in the input or EOF if none left.
 func (l *Scanner) next() (r rune, err error) {
 	r, l.width, err = l.reader.ReadRune()
 	l.pos += l.width
@@ -114,14 +114,14 @@ func (l *Scanner) peekWord() string {
 func (l *Scanner) emit(t token.Type) {
 	word := l.peekWord()
 	l.word = nil
-	l.tokens <- token.New(
+	l.tokens = append(l.tokens, token.New(
 		t,
 		l.source,
 		l.start,
 		l.linePos-len(word)+1,
 		l.line,
 		word,
-	)
+	))
 	l.start = l.pos
 }
 
@@ -160,10 +160,10 @@ func (l *Scanner) acceptRun(valid string) error {
 	}
 }
 
-// Run runs the state machine for the scanner in parallel.
+// Run runs the state machine for the scanner until the end of line or an
+// unexpected error.
 func (l *Scanner) Run() {
 	for {
-		l.mut.Lock()
 		var err error
 		l.state, err = l.state(l)
 		if err == io.EOF {
@@ -175,19 +175,9 @@ func (l *Scanner) Run() {
 		}
 
 		if l.state == nil {
-			l.mut.Unlock()
 			break
 		}
-		l.mut.Unlock()
 	}
-	close(l.tokens)
-}
-
-// Stop stops the scanner.
-func (l *Scanner) Stop() {
-	l.mut.Lock()
-	defer l.mut.Unlock()
-	l.state = nil
 }
 
 // newLine increments the line and sets the new line start
@@ -201,14 +191,14 @@ func (l *Scanner) errorf(format string, args ...interface{}) stateFunc {
 	l.backup()
 	l.ignore()
 	l.next()
-	l.tokens <- token.New(
+	l.tokens = append(l.tokens, token.New(
 		token.Error,
 		l.source,
 		l.start,
 		l.linePos,
 		l.line,
 		fmt.Sprintf(format, args...),
-	)
+	))
 	return nil
 }
 
@@ -261,7 +251,44 @@ func (l *Scanner) scanNumber() (bool, token.Type, error) {
 
 // Next returns the next Token available in the scanner.
 func (l *Scanner) Next() *token.Token {
-	return <-l.tokens
+	if len(l.tokens) <= l.idx {
+		return nil
+	}
+	t := l.tokens[l.idx]
+	l.idx++
+	return t
+}
+
+// Peek returns the next token but does not advance the internal cursor.
+func (l *Scanner) Peek() *token.Token {
+	if len(l.tokens) <= l.idx+1 {
+		return nil
+	}
+
+	return l.tokens[l.idx+1]
+}
+
+// Backup goes back until a certain token.
+func (l *Scanner) Backup(until *token.Token) {
+	// if all tokens were consumed, we needd to backup l.idx
+	// until the last token
+	if len(l.tokens) <= l.idx {
+		l.idx = len(l.tokens) - 1
+	}
+
+	for l.idx >= 0 && l.tokens[l.idx] != until {
+		l.idx--
+	}
+
+	if l.idx < 0 {
+		l.idx = 0
+	}
+}
+
+// Reset resets the scanner and the next time Next is called will start
+// returning tokens from the beginning.
+func (l *Scanner) Reset() {
+	l.idx = 0
 }
 
 // lexLeftParen scans the left paren, which is known to be present.
@@ -344,12 +371,24 @@ func lexExpr(l *Scanner) (stateFunc, error) {
 		return lexChar, nil
 	case r == colon:
 		return lexColon, nil
+	case r == backslash:
+		l.emit(token.Backslash)
+		return lexExpr, nil
 	case r == eq:
 		return lexEq, nil
 	case r == comma:
 		l.emit(token.Comma)
 		return lexExpr, nil
 	case r == pipe:
+		nr, err := l.peek()
+		if err != nil {
+			return nil, err
+		}
+
+		if isSymbol(nr) {
+			return lexOp, nil
+		}
+
 		l.emit(token.Pipe)
 		return lexExpr, nil
 	case r == dot:

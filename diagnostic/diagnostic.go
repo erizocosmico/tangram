@@ -65,7 +65,7 @@ func (d *msgDiagnostic) Msg() string           { return d.msg.String() }
 func (d *regionDiagnostic) Line() int64        { return int64(d.pos.Line) }
 func (d *msgDiagnostic) Line() int64           { return int64(d.pos.Line) }
 func (d *regionDiagnostic) StartLine() int64   { return int64(d.startPos.Line) }
-func (d *msgDiagnostic) StartLine() int64      { return -1 }
+func (d *msgDiagnostic) StartLine() int64      { return int64(d.pos.Line) }
 func (d *regionDiagnostic) Column() int64      { return int64(d.pos.Column) }
 func (d *msgDiagnostic) Column() int64         { return int64(d.pos.Column) }
 func (d *regionDiagnostic) HasRegion() bool    { return true }

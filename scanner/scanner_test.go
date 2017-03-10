@@ -2,7 +2,6 @@ package scanner
 
 import (
 	"strings"
-	"sync"
 	"testing"
 
 	"github.com/erizocosmico/elmo/token"
@@ -37,16 +36,6 @@ func TestLexNumber(t *testing.T) {
 	})
 }
 
-const testNumRange = `2..5`
-
-func TestLexNumRange(t *testing.T) {
-	testLex(t, testNumRange, []expectedToken{
-		{"2", token.Int},
-		{"..", token.Range},
-		{"5", token.Int},
-	})
-}
-
 const testRecord = `
 type alias Foo = 
 	{ myInt : Int 
@@ -69,6 +58,7 @@ func TestLexRecord(t *testing.T) {
 		{":", token.Colon},
 		{"Float", token.Identifier},
 		{"}", token.RightBrace},
+		{"\n", token.EOF},
 	})
 }
 
@@ -97,6 +87,7 @@ func TestLexFuncDecl(t *testing.T) {
 		{"=", token.Assign},
 		{"fn", token.Identifier},
 		{"n", token.Identifier},
+		{"\n", token.EOF},
 	})
 }
 
@@ -113,6 +104,7 @@ func TestLexRecordUpdate(t *testing.T) {
 		{"=", token.Assign},
 		{"True", token.True},
 		{"}", token.RightBrace},
+		{"\n", token.EOF},
 	})
 }
 
@@ -136,6 +128,7 @@ func TestSumType(t *testing.T) {
 		{"Mul", token.Identifier},
 		{"|", token.Pipe},
 		{"Sub", token.Identifier},
+		{"\n", token.EOF},
 	})
 }
 
@@ -156,6 +149,7 @@ func TestString(t *testing.T) {
 		{"=", token.Assign},
 		{`"\t\""`, token.String},
 		{"}", token.RightBrace},
+		{"\n", token.EOF},
 	})
 }
 
@@ -176,6 +170,7 @@ func TestChar(t *testing.T) {
 		{"=", token.Assign},
 		{`'\\'`, token.Char},
 		{"}", token.RightBrace},
+		{"\n", token.EOF},
 	})
 }
 
@@ -188,6 +183,7 @@ func TestComment(t *testing.T) {
 	testLex(t, testComment, []expectedToken{
 		{"-- comment", token.Comment},
 		{"-- other comment", token.Comment},
+		{"\n", token.EOF},
 	})
 }
 
@@ -206,6 +202,7 @@ func TestMultiLineComment(t *testing.T) {
     head [1,2,3] == Just 1
     head [] == Nothing
 -}`, token.Comment},
+		{"\n", token.EOF},
 	})
 }
 
@@ -237,6 +234,7 @@ func TestList(t *testing.T) {
 		{",", token.Comma},
 		{"3", token.Int},
 		{"]", token.RightBracket},
+		{"\n", token.EOF},
 	})
 }
 
@@ -255,6 +253,7 @@ func TestLexOp(t *testing.T) {
 		{"[", token.LeftBracket},
 		{"2", token.Int},
 		{"]", token.RightBracket},
+		{"\n", token.EOF},
 	})
 }
 
@@ -305,7 +304,41 @@ func TestLexCustomOp(t *testing.T) {
 		{"12", token.Int},
 		{"-:", token.Op},
 		{"13", token.Int},
+		{"\n", token.EOF},
 	})
+}
+
+func TestBackup(t *testing.T) {
+	l := New("test", strings.NewReader(testSumType))
+	l.Run()
+
+	cases := []struct {
+		breakpoint int
+		advance    int
+		expected   string
+	}{
+		{0, 30, "type"},
+		{30, 30, "type"},
+		{3, 2, "="},
+	}
+
+	for i, c := range cases {
+		l.Reset()
+
+		for j := 0; j < c.breakpoint-1; j++ {
+			l.Next()
+		}
+		bp := l.Next()
+
+		for j := 0; j < c.advance; j++ {
+			l.Next()
+		}
+
+		l.Backup(bp)
+		tok := l.Next()
+		require.NotNil(t, tok, "expected token not to be nil, i=%d", i)
+		require.Equal(t, c.expected, tok.Value, "i=%d", i)
+	}
 }
 
 type expectedToken struct {
@@ -315,16 +348,8 @@ type expectedToken struct {
 
 func testLex(t *testing.T, input string, expected []expectedToken) {
 	l := New("test", strings.NewReader(input))
-	go l.Run()
-
-	var tokens []*token.Token
-	for {
-		tk := l.Next()
-		if tk == nil || tk.Type == token.EOF {
-			break
-		}
-		tokens = append(tokens, tk)
-	}
+	l.Run()
+	tokens := l.tokens
 
 	require.Equal(t, len(expected), len(tokens))
 	for i := range tokens {
@@ -337,21 +362,10 @@ func testLex(t *testing.T, input string, expected []expectedToken) {
 
 func testLexState(t *testing.T, input string, fn stateFunc, testFn func(*Scanner, []*token.Token)) {
 	l := New("test", strings.NewReader(input))
-	var tokens []*token.Token
-
-	wg := new(sync.WaitGroup)
-	go func() {
-		wg.Add(1)
-		for tk := range l.tokens {
-			tokens = append(tokens, tk)
-		}
-		wg.Done()
-	}()
 
 	var err error
 	l.state, err = fn(l)
-	close(l.tokens)
-	wg.Wait()
+	tokens := l.tokens
 
 	if err != nil {
 		t.Fatal(err)

@@ -31,11 +31,11 @@ infixl 7 :>
 func TestParseFile_OnlyFixity(t *testing.T) {
 	require := require.New(t)
 
-	p := stringParser(parseFixture)
+	p := stringParser(t, parseFixture)
 	p.mode = ImportsAndFixity
 	var f *ast.File
 	func() {
-		defer assertEOF(t, "TestParseFile_OnlyFixity", true)
+		defer assertEOF(t, "TestParseFile_OnlyFixity", false)
 		defer p.sess.Emit()
 		f = p.parseFile()
 

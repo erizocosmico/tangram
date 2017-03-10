@@ -27,7 +27,7 @@ func Definition(
 ) declAssert {
 	return func(t *testing.T, decl ast.Decl) {
 		def, ok := decl.(*ast.Definition)
-		require.True(t, ok, "expected a definition decl")
+		require.True(t, ok, "expected declaration to be a Definition, is %T", decl)
 		require.Equal(t, name, def.Name.Name)
 		require.Equal(t, len(patterns), len(def.Args), "expected same number of arguments")
 		for i := range patterns {
@@ -41,6 +41,15 @@ func Definition(
 		}
 
 		exprAssert(t, def.Body)
+	}
+}
+
+func Destructuring(pattern patternAssert, expr exprAssert) declAssert {
+	return func(t *testing.T, decl ast.Decl) {
+		d, ok := decl.(*ast.DestructuringAssignment)
+		require.True(t, ok, "expected definition to be a DestructuredAssignment, is %T", decl)
+		pattern(t, d.Pattern)
+		expr(t, d.Expr)
 	}
 }
 
@@ -180,13 +189,150 @@ func TypeAnnotation(typeAssert typeAssert) annotationAssert {
 	}
 }
 
+func TupleCtor(elems int) exprAssert {
+	return func(t *testing.T, expr ast.Expr) {
+		ctor, ok := expr.(*ast.TupleCtor)
+		require.True(t, ok, "expected expr to be TupleCtor, is %T", expr)
+		require.Equal(t, elems, ctor.Elems, "expected TupleCtor to have the ame number of elements")
+	}
+}
+
+func ListLiteral(elems ...exprAssert) exprAssert {
+	return func(t *testing.T, expr ast.Expr) {
+		lit, ok := expr.(*ast.ListLit)
+		require.True(t, ok, "expected expr to be ListLit, is %T", expr)
+
+		require.Len(t, lit.Elems, len(elems), "expected list to have this number of elements")
+		for i := range elems {
+			elems[i](t, lit.Elems[i])
+		}
+	}
+}
+
+func TupleLiteral(elems ...exprAssert) exprAssert {
+	return func(t *testing.T, expr ast.Expr) {
+		lit, ok := expr.(*ast.TupleLit)
+		require.True(t, ok, "expected expr to be TupleLit, is %T", expr)
+
+		require.Len(t, lit.Elems, len(elems), "expected tuple to have this number of elements")
+		for i := range elems {
+			elems[i](t, lit.Elems[i])
+		}
+	}
+}
+
+func Identifier(name string) exprAssert {
+	return func(t *testing.T, expr ast.Expr) {
+		ident, ok := expr.(*ast.Ident)
+		require.True(t, ok, "expected expr to be Identifier, is %T", expr)
+		require.Equal(t, name, ident.Name)
+	}
+}
+
 func Literal(kind ast.BasicLitType, val string) exprAssert {
 	return func(t *testing.T, expr ast.Expr) {
 		lit, ok := expr.(*ast.BasicLit)
-		require.True(t, ok, "expected expr to be BasicLit")
+		require.True(t, ok, "expected expr to be BasicLit, is %T", expr)
 
 		require.Equal(t, kind, lit.Type)
 		require.Equal(t, val, lit.Value)
+	}
+}
+
+func Lambda(patterns []patternAssert, assertExpr exprAssert) exprAssert {
+	return func(t *testing.T, expr ast.Expr) {
+		lambda, ok := expr.(*ast.Lambda)
+		require.True(t, ok, "expected expr to be Lambda, is %T", expr)
+
+		require.Len(t, lambda.Args, len(patterns), "Lambda argument length")
+		for i := range patterns {
+			patterns[i](t, lambda.Args[i])
+		}
+
+		assertExpr(t, lambda.Expr)
+	}
+}
+
+func BinaryExpr(op string, lhs, rhs exprAssert) exprAssert {
+	return func(t *testing.T, expr ast.Expr) {
+		binaryExpr, ok := expr.(*ast.BinaryExpr)
+		require.True(t, ok, "expected expr to be BinaryExpr, is %T", expr)
+		require.Equal(t, op, binaryExpr.Op.Name, "op name")
+		lhs(t, binaryExpr.Lhs)
+		rhs(t, binaryExpr.Rhs)
+	}
+}
+
+func UnaryExpr(op string, lhs exprAssert) exprAssert {
+	return func(t *testing.T, expr ast.Expr) {
+		unaryExpr, ok := expr.(*ast.UnaryExpr)
+		require.True(t, ok, "expected expr to be UnaryExpr, is %T", expr)
+		require.Equal(t, op, unaryExpr.Op.Name, "op name")
+		lhs(t, unaryExpr.Expr)
+	}
+}
+
+func Parens(assert exprAssert) exprAssert {
+	return func(t *testing.T, expr ast.Expr) {
+		parens, ok := expr.(*ast.ParensExpr)
+		require.True(t, ok, "expected expr to be ParensExpr, is %T", expr)
+		assert(t, parens.Expr)
+	}
+}
+
+func FuncApp(fn exprAssert, args ...exprAssert) exprAssert {
+	return func(t *testing.T, expr ast.Expr) {
+		app, ok := expr.(*ast.FuncApp)
+		require.True(t, ok, "expected expr to be FuncApp, is %T", expr)
+		fn(t, app.Func)
+		require.Len(t, args, len(app.Args), "func app arguments")
+		for i := range args {
+			args[i](t, app.Args[i])
+		}
+	}
+}
+
+type fieldAssignAssert func(*testing.T, *ast.FieldAssign)
+
+func RecordUpdate(v string, fields ...fieldAssignAssert) exprAssert {
+	return func(t *testing.T, expr ast.Expr) {
+		record, ok := expr.(*ast.RecordUpdate)
+		require.True(t, ok, "expected expr to be RecordUpdate, is %T", expr)
+		require.Equal(t, v, record.Record.Name)
+		require.Len(t, record.Fields, len(fields), "invalid number of record fields")
+		for i := range fields {
+			fields[i](t, record.Fields[i])
+		}
+	}
+}
+
+func RecordLiteral(fields ...fieldAssignAssert) exprAssert {
+	return func(t *testing.T, expr ast.Expr) {
+		record, ok := expr.(*ast.RecordLit)
+		require.True(t, ok, "expected expr to be RecordLit, is %T", expr)
+		require.Len(t, record.Fields, len(fields), "invalid number of record fields")
+		for i := range fields {
+			fields[i](t, record.Fields[i])
+		}
+	}
+}
+
+func Let(exprAssert exprAssert, decls ...declAssert) exprAssert {
+	return func(t *testing.T, expr ast.Expr) {
+		let, ok := expr.(*ast.LetExpr)
+		require.True(t, ok, "expected expr to be LetExpr, is %T", expr)
+		require.Len(t, let.Decls, len(decls), "invalid number of declarations")
+		for i := range decls {
+			decls[i](t, let.Decls[i])
+		}
+		exprAssert(t, let.Body)
+	}
+}
+
+func FieldAssign(name string, expr exprAssert) fieldAssignAssert {
+	return func(t *testing.T, f *ast.FieldAssign) {
+		require.Equal(t, name, f.Field.Name, "invalid record field name")
+		expr(t, f.Expr)
 	}
 }
 

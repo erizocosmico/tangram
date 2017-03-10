@@ -108,7 +108,7 @@ const (
 	Of
 	// Case is the "case" keyword
 	Case
-	// Infox is the "infix" keyword
+	// Infix is the "infix" keyword
 	Infix
 	// Infixl is the "infixl" keyword
 	Infixl
@@ -124,4 +124,6 @@ const (
 	Exposing
 	// Import is the "import" keyword
 	Import
+	// Backslash is the "\" character
+	Backslash
 )

@@ -40,13 +40,13 @@ func main() {
 
 func printModule(mod *ast.ModuleDecl) {
 	printIndent(1)
-	fmt.Println(color.YellowString("Module:"), mod.Name.String())
+	fmt.Println(color.YellowString("Module:"), mod.Name.(fmt.Stringer).String())
 	printExposing(mod.Exposing)
 }
 
 func printImport(i *ast.ImportDecl) {
 	printIndent(1)
-	fmt.Println(color.YellowString("Import:"), i.Module.String())
+	fmt.Println(color.YellowString("Import:"), i.Module.(fmt.Stringer).String())
 	if i.Alias != nil {
 		printIndent(2)
 		fmt.Println(color.YellowString("Alias:"), i.Alias.Name)
@@ -193,7 +193,7 @@ func printFuncType(indent int, f *ast.FuncType) {
 
 func printBasicType(indent int, t *ast.BasicType) {
 	printIndent(indent)
-	fmt.Println("-", t.Name.Name)
+	fmt.Println("-", t.Name.(fmt.Stringer).String())
 	for _, a := range t.Args {
 		printType(indent, a)
 	}
