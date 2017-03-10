@@ -18,7 +18,7 @@ The choice of Go as the host language is basically because of its great ecosyste
 ### Roadmap
 
 - [x] Scan Elm code
-- [ ] Parse scanned Elm code and build AST
+- [x] Parse scanned Elm code and build AST
   - [x] Parse `module` declaration
   - [x] Parse `import` declarations
   - [x] Parse `type` declarations
@@ -26,7 +26,7 @@ The choice of Go as the host language is basically because of its great ecosyste
   - [x] Parse value declarations
   - [x] Parse patterns
   - [ ] Parse expressions
-- [ ] Operator precedence parsing
+- [x] Operator precedence parsing
 - [ ] Semantic analysis
 - [ ] Generate Go ASTs from Elm ASTs
 - [ ] Module management
