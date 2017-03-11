@@ -72,6 +72,10 @@ type lineInfo struct {
 	end   token.Pos
 }
 
+func (li lineInfo) inLine(pos token.Pos) bool {
+	return pos >= li.start && pos <= li.end
+}
+
 func NewSource(path string, src io.ReadSeeker) (*Source, error) {
 	s := &Source{path, src, nil}
 	if err := s.makeLineIndex(); err != nil {
@@ -118,12 +122,21 @@ cleanup:
 }
 
 func (s *Source) findLineStart(pos token.Pos) token.Pos {
-	for _, li := range s.lineIndex {
-		if pos >= li.start && pos <= li.end {
+	start, end := 0, len(s.lineIndex)
+
+	for start < end {
+		h := start + (end-start)/2
+		li := s.lineIndex[h]
+		if li.inLine(pos) {
 			return li.start
+		} else if pos < li.start {
+			end = h
+		} else {
+			start = h + 1
 		}
 	}
-	return token.Pos(0)
+
+	return s.lineIndex[start].start
 }
 
 // Region returns a region of the source code beginning at the start position
