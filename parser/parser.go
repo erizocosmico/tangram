@@ -308,16 +308,14 @@ func (p *parser) parseLowerName() *ast.Ident {
 func (p *parser) parseOp() *ast.Ident {
 	name := "_"
 	pos := p.tok.Position
-	var obj *ast.Object
 	if p.tok.Type == token.Op {
 		name = p.tok.Value
-		obj = &ast.Object{Kind: ast.Op}
 		p.next()
 	} else {
 		p.expect(token.Op)
 	}
 
-	return &ast.Ident{NamePos: pos, Name: name, Obj: obj}
+	return &ast.Ident{NamePos: pos, Name: name}
 }
 
 func (p *parser) parseDecl() ast.Decl {
@@ -382,7 +380,7 @@ func (p *parser) parseDestructuringAssignment() *ast.DestructuringAssignment {
 		panic(bailout{})
 	}
 
-	a.Assign = p.expect(token.Assign)
+	a.Eq = p.expect(token.Assign)
 	a.Expr = p.parseExpr()
 
 	return a
@@ -401,18 +399,18 @@ func (p *parser) parseInfixDecl() ast.Decl {
 		p.errorExpected(p.tok, token.Int)
 	}
 
-	priority := p.parseLiteral()
-	n, _ := strconv.Atoi(priority.Value)
+	precedence := p.parseLiteral()
+	n, _ := strconv.Atoi(precedence.Value)
 	if n < 0 || n > 9 {
-		p.errorMessage(priority.Position, "Operator priority must be a number between 0 and 9, both included.")
+		p.errorMessage(precedence.Position, "Operator precedence must be a number between 0 and 9, both included.")
 	}
 
 	op := p.parseOp()
 	return &ast.InfixDecl{
-		InfixPos: pos,
-		Assoc:    assoc,
-		Priority: priority,
-		Op:       op,
+		InfixPos:   pos,
+		Assoc:      assoc,
+		Precedence: precedence,
+		Op:         op,
 	}
 }
 
@@ -456,9 +454,8 @@ func (p *parser) parseTypeDeclArgs() (idents []*ast.Ident) {
 func (p *parser) parseConstructors() (cs []*ast.Constructor) {
 	cs = append(cs, p.parseConstructor())
 	for p.is(token.Pipe) {
-		pipePos := p.expect(token.Pipe)
+		p.expect(token.Pipe)
 		ctor := p.parseConstructor()
-		ctor.Pipe = pipePos
 		cs = append(cs, ctor)
 	}
 	return
@@ -578,7 +575,7 @@ func (p *parser) parseRecordType() *ast.RecordType {
 			p.expect(token.Comma)
 		}
 
-		f := &ast.RecordTypeField{}
+		f := new(ast.RecordField)
 		f.Name = p.parseLowerName()
 		f.Colon = p.expect(token.Colon)
 		f.Type = p.expectType()
@@ -625,7 +622,7 @@ func (p *parser) parseDefinition() ast.Decl {
 	}
 
 	decl.Args = p.parseFuncArgs(token.Assign)
-	decl.Assign = p.expect(token.Assign)
+	decl.Eq = p.expect(token.Assign)
 	decl.Body = p.parseExpr()
 	return decl
 }

@@ -56,6 +56,6 @@ func assertFixity(t *testing.T, d ast.Decl, op string, precedence uint, assoc as
 	decl, ok := d.(*ast.InfixDecl)
 	require.True(t, ok, "should be InfixDecl")
 	require.Equal(t, op, decl.Op.Name)
-	require.Equal(t, fmt.Sprint(precedence), decl.Priority.Value)
+	require.Equal(t, fmt.Sprint(precedence), decl.Precedence.Value)
 	require.Equal(t, assoc, decl.Assoc)
 }

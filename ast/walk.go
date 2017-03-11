@@ -83,7 +83,7 @@ func Walk(v Visitor, node Node) {
 
 	case *InfixDecl:
 		Walk(v, node.Op)
-		Walk(v, node.Priority)
+		Walk(v, node.Precedence)
 
 	case *AliasDecl:
 		Walk(v, node.Name)
@@ -148,7 +148,7 @@ func Walk(v Visitor, node Node) {
 			Walk(v, f)
 		}
 
-	case *RecordTypeField:
+	case *RecordField:
 		Walk(v, node.Name)
 		Walk(v, node.Type)
 
@@ -242,11 +242,11 @@ func Walk(v Visitor, node Node) {
 	case *ListLit:
 		walkExprs(v, node.Elems)
 
-	case *UnaryExpr:
+	case *UnaryOp:
 		Walk(v, node.Op)
 		Walk(v, node.Expr)
 
-	case *BinaryExpr:
+	case *BinaryOp:
 		Walk(v, node.Op)
 		Walk(v, node.Lhs)
 		Walk(v, node.Rhs)

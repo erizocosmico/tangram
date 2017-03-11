@@ -170,7 +170,7 @@ func printRecord(indent int, t *ast.RecordType) {
 	}
 }
 
-func printRecordField(indent int, f *ast.RecordTypeField) {
+func printRecordField(indent int, f *ast.RecordField) {
 	printIndent(indent)
 	fmt.Printf("- %s:\n", f.Name.Name)
 	printType(indent+1, f.Type)
@@ -215,7 +215,7 @@ func printInfixDecl(decl *ast.InfixDecl) {
 	printIndent(2)
 	fmt.Println("- Operator:", decl.Op.Name)
 	printIndent(2)
-	fmt.Println("- Priority:", decl.Priority.Value)
+	fmt.Println("- Precedence:", decl.Precedence.Value)
 }
 
 func printDef(def *ast.Definition) {

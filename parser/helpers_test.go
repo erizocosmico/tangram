@@ -11,20 +11,20 @@ import (
 )
 
 type (
-	typeAssert        func(*testing.T, ast.Type)
-	constructorAssert func(*testing.T, *ast.Constructor)
-	declAssert        func(*testing.T, ast.Decl)
-	annotationAssert  func(*testing.T, string, *ast.TypeAnnotation)
-	exprAssert        func(*testing.T, ast.Expr)
-	patternAssert     func(*testing.T, ast.Pattern)
+	TypeAssert        func(*testing.T, ast.Type)
+	ConstructorAssert func(*testing.T, *ast.Constructor)
+	DeclAssert        func(*testing.T, ast.Decl)
+	AnnotationAssert  func(*testing.T, string, *ast.TypeAnnotation)
+	ExprAssert        func(*testing.T, ast.Expr)
+	PatternAssert     func(*testing.T, ast.Pattern)
 )
 
 func Definition(
 	name string,
-	annAssert annotationAssert,
-	patterns []patternAssert,
-	exprAssert exprAssert,
-) declAssert {
+	annAssert AnnotationAssert,
+	patterns []PatternAssert,
+	exprAssert ExprAssert,
+) DeclAssert {
 	return func(t *testing.T, decl ast.Decl) {
 		def, ok := decl.(*ast.Definition)
 		require.True(t, ok, "expected declaration to be a Definition, is %T", decl)
@@ -44,7 +44,7 @@ func Definition(
 	}
 }
 
-func Destructuring(pattern patternAssert, expr exprAssert) declAssert {
+func Destructuring(pattern PatternAssert, expr ExprAssert) DeclAssert {
 	return func(t *testing.T, decl ast.Decl) {
 		d, ok := decl.(*ast.DestructuringAssignment)
 		require.True(t, ok, "expected definition to be a DestructuredAssignment, is %T", decl)
@@ -56,8 +56,8 @@ func Destructuring(pattern patternAssert, expr exprAssert) declAssert {
 func Alias(
 	name string,
 	args []string,
-	typeAssert typeAssert,
-) declAssert {
+	typeAssert TypeAssert,
+) DeclAssert {
 	return func(t *testing.T, decl ast.Decl) {
 		alias, ok := decl.(*ast.AliasDecl)
 		require.True(t, ok, "expected an alias decl")
@@ -70,8 +70,8 @@ func Alias(
 func Union(
 	name string,
 	args []string,
-	constructors ...constructorAssert,
-) declAssert {
+	constructors ...ConstructorAssert,
+) DeclAssert {
 	return func(t *testing.T, decl ast.Decl) {
 		union, ok := decl.(*ast.UnionDecl)
 		require.True(t, ok, "expected an union decl")
@@ -85,7 +85,7 @@ func Union(
 	}
 }
 
-func Constructor(name string, args ...typeAssert) constructorAssert {
+func Constructor(name string, args ...TypeAssert) ConstructorAssert {
 	return func(t *testing.T, c *ast.Constructor) {
 		require.Equal(t, name, c.Name.Name, "invalid type name")
 		require.Equal(t, len(args), len(c.Args), "invalid number of type arguments")
@@ -95,7 +95,7 @@ func Constructor(name string, args ...typeAssert) constructorAssert {
 	}
 }
 
-func Tuple(types ...typeAssert) typeAssert {
+func Tuple(types ...TypeAssert) TypeAssert {
 	return func(t *testing.T, typ ast.Type) {
 		tuple, ok := typ.(*ast.TupleType)
 		require.True(t, ok, "type is not tuple")
@@ -107,7 +107,7 @@ func Tuple(types ...typeAssert) typeAssert {
 	}
 }
 
-func FuncType(elems ...typeAssert) typeAssert {
+func FuncType(elems ...TypeAssert) TypeAssert {
 	return func(t *testing.T, typ ast.Type) {
 		fn, ok := typ.(*ast.FuncType)
 		require.True(t, ok, "type is not a function")
@@ -121,7 +121,7 @@ func FuncType(elems ...typeAssert) typeAssert {
 	}
 }
 
-func Selector(path ...string) exprAssert {
+func Selector(path ...string) ExprAssert {
 	return func(t *testing.T, expr ast.Expr) {
 		e, ok := expr.(fmt.Stringer)
 		require.True(t, ok, "expected expression in selector to be stringer")
@@ -129,7 +129,7 @@ func Selector(path ...string) exprAssert {
 	}
 }
 
-func BasicType(name string, args ...typeAssert) typeAssert {
+func BasicType(name string, args ...TypeAssert) TypeAssert {
 	return func(t *testing.T, typ ast.Type) {
 		basic, ok := typ.(*ast.BasicType)
 		require.True(t, ok, "type is not basic type")
@@ -143,7 +143,7 @@ func BasicType(name string, args ...typeAssert) typeAssert {
 	}
 }
 
-func SelectorType(sel exprAssert, args ...typeAssert) typeAssert {
+func SelectorType(sel ExprAssert, args ...TypeAssert) TypeAssert {
 	return func(t *testing.T, typ ast.Type) {
 		basic, ok := typ.(*ast.BasicType)
 		require.True(t, ok, "type is not basic type, is %T", typ)
@@ -155,9 +155,9 @@ func SelectorType(sel exprAssert, args ...typeAssert) typeAssert {
 	}
 }
 
-type recordFieldAssert func(*testing.T, *ast.RecordTypeField)
+type recordFieldAssert func(*testing.T, *ast.RecordField)
 
-func Record(fields ...recordFieldAssert) typeAssert {
+func Record(fields ...recordFieldAssert) TypeAssert {
 	return func(t *testing.T, typ ast.Type) {
 		record, ok := typ.(*ast.RecordType)
 		require.True(t, ok, "type is not record type")
@@ -168,28 +168,28 @@ func Record(fields ...recordFieldAssert) typeAssert {
 	}
 }
 
-func RecordField(name string, assertType typeAssert) recordFieldAssert {
-	return func(t *testing.T, f *ast.RecordTypeField) {
+func RecordField(name string, assertType TypeAssert) recordFieldAssert {
+	return func(t *testing.T, f *ast.RecordField) {
 		require.Equal(t, name, f.Name.Name, "invalid record field name")
 		assertType(t, f.Type)
 	}
 }
 
 func BasicRecordField(name, typ string) recordFieldAssert {
-	return func(t *testing.T, f *ast.RecordTypeField) {
+	return func(t *testing.T, f *ast.RecordField) {
 		require.Equal(t, name, f.Name.Name, "invalid record field name")
 		BasicType(typ)(t, f.Type)
 	}
 }
 
-func TypeAnnotation(typeAssert typeAssert) annotationAssert {
+func TypeAnnotation(typeAssert TypeAssert) AnnotationAssert {
 	return func(t *testing.T, name string, ann *ast.TypeAnnotation) {
 		require.Equal(t, name, ann.Name.Name)
 		typeAssert(t, ann.Type)
 	}
 }
 
-func TupleCtor(elems int) exprAssert {
+func TupleCtor(elems int) ExprAssert {
 	return func(t *testing.T, expr ast.Expr) {
 		ctor, ok := expr.(*ast.TupleCtor)
 		require.True(t, ok, "expected expr to be TupleCtor, is %T", expr)
@@ -197,7 +197,7 @@ func TupleCtor(elems int) exprAssert {
 	}
 }
 
-func ListLiteral(elems ...exprAssert) exprAssert {
+func ListLiteral(elems ...ExprAssert) ExprAssert {
 	return func(t *testing.T, expr ast.Expr) {
 		lit, ok := expr.(*ast.ListLit)
 		require.True(t, ok, "expected expr to be ListLit, is %T", expr)
@@ -209,7 +209,7 @@ func ListLiteral(elems ...exprAssert) exprAssert {
 	}
 }
 
-func TupleLiteral(elems ...exprAssert) exprAssert {
+func TupleLiteral(elems ...ExprAssert) ExprAssert {
 	return func(t *testing.T, expr ast.Expr) {
 		lit, ok := expr.(*ast.TupleLit)
 		require.True(t, ok, "expected expr to be TupleLit, is %T", expr)
@@ -221,7 +221,7 @@ func TupleLiteral(elems ...exprAssert) exprAssert {
 	}
 }
 
-func Identifier(name string) exprAssert {
+func Identifier(name string) ExprAssert {
 	return func(t *testing.T, expr ast.Expr) {
 		ident, ok := expr.(*ast.Ident)
 		require.True(t, ok, "expected expr to be Identifier, is %T", expr)
@@ -229,7 +229,7 @@ func Identifier(name string) exprAssert {
 	}
 }
 
-func Literal(kind ast.BasicLitType, val string) exprAssert {
+func Literal(kind ast.BasicLitType, val string) ExprAssert {
 	return func(t *testing.T, expr ast.Expr) {
 		lit, ok := expr.(*ast.BasicLit)
 		require.True(t, ok, "expected expr to be BasicLit, is %T", expr)
@@ -239,7 +239,7 @@ func Literal(kind ast.BasicLitType, val string) exprAssert {
 	}
 }
 
-func Lambda(patterns []patternAssert, assertExpr exprAssert) exprAssert {
+func Lambda(patterns []PatternAssert, assertExpr ExprAssert) ExprAssert {
 	return func(t *testing.T, expr ast.Expr) {
 		lambda, ok := expr.(*ast.Lambda)
 		require.True(t, ok, "expected expr to be Lambda, is %T", expr)
@@ -253,26 +253,26 @@ func Lambda(patterns []patternAssert, assertExpr exprAssert) exprAssert {
 	}
 }
 
-func BinaryExpr(op string, lhs, rhs exprAssert) exprAssert {
+func BinaryOp(op string, lhs, rhs ExprAssert) ExprAssert {
 	return func(t *testing.T, expr ast.Expr) {
-		binaryExpr, ok := expr.(*ast.BinaryExpr)
-		require.True(t, ok, "expected expr to be BinaryExpr, is %T", expr)
+		binaryExpr, ok := expr.(*ast.BinaryOp)
+		require.True(t, ok, "expected expr to be BinaryOp, is %T", expr)
 		require.Equal(t, op, binaryExpr.Op.Name, "op name")
 		lhs(t, binaryExpr.Lhs)
 		rhs(t, binaryExpr.Rhs)
 	}
 }
 
-func UnaryExpr(op string, lhs exprAssert) exprAssert {
+func UnaryOp(op string, lhs ExprAssert) ExprAssert {
 	return func(t *testing.T, expr ast.Expr) {
-		unaryExpr, ok := expr.(*ast.UnaryExpr)
-		require.True(t, ok, "expected expr to be UnaryExpr, is %T", expr)
+		unaryExpr, ok := expr.(*ast.UnaryOp)
+		require.True(t, ok, "expected expr to be UnaryOp, is %T", expr)
 		require.Equal(t, op, unaryExpr.Op.Name, "op name")
 		lhs(t, unaryExpr.Expr)
 	}
 }
 
-func Parens(assert exprAssert) exprAssert {
+func Parens(assert ExprAssert) ExprAssert {
 	return func(t *testing.T, expr ast.Expr) {
 		parens, ok := expr.(*ast.ParensExpr)
 		require.True(t, ok, "expected expr to be ParensExpr, is %T", expr)
@@ -280,7 +280,7 @@ func Parens(assert exprAssert) exprAssert {
 	}
 }
 
-func FuncApp(fn exprAssert, args ...exprAssert) exprAssert {
+func FuncApp(fn ExprAssert, args ...ExprAssert) ExprAssert {
 	return func(t *testing.T, expr ast.Expr) {
 		app, ok := expr.(*ast.FuncApp)
 		require.True(t, ok, "expected expr to be FuncApp, is %T", expr)
@@ -294,7 +294,7 @@ func FuncApp(fn exprAssert, args ...exprAssert) exprAssert {
 
 type fieldAssignAssert func(*testing.T, *ast.FieldAssign)
 
-func RecordUpdate(v string, fields ...fieldAssignAssert) exprAssert {
+func RecordUpdate(v string, fields ...fieldAssignAssert) ExprAssert {
 	return func(t *testing.T, expr ast.Expr) {
 		record, ok := expr.(*ast.RecordUpdate)
 		require.True(t, ok, "expected expr to be RecordUpdate, is %T", expr)
@@ -306,7 +306,7 @@ func RecordUpdate(v string, fields ...fieldAssignAssert) exprAssert {
 	}
 }
 
-func RecordLiteral(fields ...fieldAssignAssert) exprAssert {
+func RecordLiteral(fields ...fieldAssignAssert) ExprAssert {
 	return func(t *testing.T, expr ast.Expr) {
 		record, ok := expr.(*ast.RecordLit)
 		require.True(t, ok, "expected expr to be RecordLit, is %T", expr)
@@ -317,7 +317,7 @@ func RecordLiteral(fields ...fieldAssignAssert) exprAssert {
 	}
 }
 
-func Let(exprAssert exprAssert, decls ...declAssert) exprAssert {
+func Let(exprAssert ExprAssert, decls ...DeclAssert) ExprAssert {
 	return func(t *testing.T, expr ast.Expr) {
 		let, ok := expr.(*ast.LetExpr)
 		require.True(t, ok, "expected expr to be LetExpr, is %T", expr)
@@ -329,14 +329,14 @@ func Let(exprAssert exprAssert, decls ...declAssert) exprAssert {
 	}
 }
 
-func FieldAssign(name string, expr exprAssert) fieldAssignAssert {
+func FieldAssign(name string, expr ExprAssert) fieldAssignAssert {
 	return func(t *testing.T, f *ast.FieldAssign) {
 		require.Equal(t, name, f.Field.Name, "invalid record field name")
 		expr(t, f.Expr)
 	}
 }
 
-func AliasPattern(underlying patternAssert, name string) patternAssert {
+func AliasPattern(underlying PatternAssert, name string) PatternAssert {
 	return func(t *testing.T, pattern ast.Pattern) {
 		alias, ok := pattern.(*ast.AliasPattern)
 		require.True(t, ok, "expected an alias pattern")
@@ -350,7 +350,7 @@ func AnythingPattern(t *testing.T, pattern ast.Pattern) {
 	require.True(t, ok, "expected an anything pattern")
 }
 
-func TuplePattern(elems ...patternAssert) patternAssert {
+func TuplePattern(elems ...PatternAssert) PatternAssert {
 	return func(t *testing.T, pattern ast.Pattern) {
 		tuple, ok := pattern.(*ast.TuplePattern)
 		require.True(t, ok, "expected a tuple pattern")
@@ -362,7 +362,7 @@ func TuplePattern(elems ...patternAssert) patternAssert {
 	}
 }
 
-func ListPattern(elems ...patternAssert) patternAssert {
+func ListPattern(elems ...PatternAssert) PatternAssert {
 	return func(t *testing.T, pattern ast.Pattern) {
 		list, ok := pattern.(*ast.ListPattern)
 		require.True(t, ok, "expected a list pattern")
@@ -374,7 +374,7 @@ func ListPattern(elems ...patternAssert) patternAssert {
 	}
 }
 
-func RecordPattern(elems ...patternAssert) patternAssert {
+func RecordPattern(elems ...PatternAssert) PatternAssert {
 	return func(t *testing.T, pattern ast.Pattern) {
 		r, ok := pattern.(*ast.RecordPattern)
 		require.True(t, ok, "expected a record pattern")
@@ -386,7 +386,7 @@ func RecordPattern(elems ...patternAssert) patternAssert {
 	}
 }
 
-func VarPattern(name string) patternAssert {
+func VarPattern(name string) PatternAssert {
 	return func(t *testing.T, pattern ast.Pattern) {
 		v, ok := pattern.(*ast.VarPattern)
 		require.True(t, ok, "expected a var pattern")
@@ -394,7 +394,7 @@ func VarPattern(name string) patternAssert {
 	}
 }
 
-func LiteralPattern(typ ast.BasicLitType, val string) patternAssert {
+func LiteralPattern(typ ast.BasicLitType, val string) PatternAssert {
 	return func(t *testing.T, pattern ast.Pattern) {
 		l, ok := pattern.(*ast.LiteralPattern)
 		require.True(t, ok, "expected a literal pattern")
@@ -403,7 +403,7 @@ func LiteralPattern(typ ast.BasicLitType, val string) patternAssert {
 	}
 }
 
-func CtorPattern(name string, elems ...patternAssert) patternAssert {
+func CtorPattern(name string, elems ...PatternAssert) PatternAssert {
 	return func(t *testing.T, pattern ast.Pattern) {
 		ctor, ok := pattern.(*ast.CtorPattern)
 		require.True(t, ok, "expected a constructor pattern")
@@ -415,7 +415,7 @@ func CtorPattern(name string, elems ...patternAssert) patternAssert {
 	}
 }
 
-func Patterns(patterns ...patternAssert) []patternAssert {
+func Patterns(patterns ...PatternAssert) []PatternAssert {
 	return patterns
 }
 

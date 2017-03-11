@@ -8,9 +8,11 @@ type Type interface {
 	isType()
 }
 
-// BasicType is a type that has a name and 0 or more arguments.
+// BasicType is a type that has a name and optional arguments.
 type BasicType struct {
+	// Name of the type.
 	Name Expr
+	// Args is the list of optional arguments of the type.
 	Args []Type
 }
 
@@ -24,8 +26,12 @@ func (t BasicType) End() token.Pos {
 	return t.Name.End()
 }
 
+// FuncType represents a function type. It has 1 or more arguments and a
+// return type.
 type FuncType struct {
-	Args   []Type
+	// Args is the list of the function argument types.
+	Args []Type
+	// Return type of the function.
 	Return Type
 }
 
@@ -35,30 +41,39 @@ func (t FuncType) End() token.Pos { return t.Return.End() }
 
 // RecordType is a node representing a record type.
 type RecordType struct {
+	// Lbrace is the position of the opening brace.
 	Lbrace token.Pos
+	// Rbrace is the position of the closing brace.
 	Rbrace token.Pos
-	Fields []*RecordTypeField
+	// Fields contains the list of fields and their types in the record.
+	Fields []*RecordField
 }
 
-func (RecordType) isType()          {}
-func (t RecordType) Pos() token.Pos { return t.Lbrace }
-func (t RecordType) End() token.Pos { return t.Rbrace }
+func (RecordType) isType()           {}
+func (t *RecordType) Pos() token.Pos { return t.Lbrace }
+func (t *RecordType) End() token.Pos { return t.Rbrace }
 
-// RecordTypeField represents a field in a record type node.
-type RecordTypeField struct {
-	Name  *Ident
-	Type  Type
+// RecordField represents a field in a record type node.
+type RecordField struct {
+	// Name of the field.
+	Name *Ident
+	// Type of the field.
+	Type Type
+	// Colon position in the node.
 	Colon token.Pos
 }
 
-func (t RecordTypeField) Pos() token.Pos { return t.Name.Pos() }
-func (t RecordTypeField) End() token.Pos { return t.Type.End() }
+func (t *RecordField) Pos() token.Pos { return t.Name.Pos() }
+func (t *RecordField) End() token.Pos { return t.Type.End() }
 
 // TupleType is a node representing a tuple with two ore more types.
 type TupleType struct {
+	// Lparen is the position of the opening parenthesis.
 	Lparen token.Pos
+	// Rparen is the position of the closing parenthesis.
 	Rparen token.Pos
-	Elems  []Type
+	// Elems is the list of types of the elements in the tuple.
+	Elems []Type
 }
 
 func (TupleType) isType()          {}
