@@ -26,7 +26,7 @@ func (p *parser) parseTerm() ast.Expr {
 	case token.Op:
 		op := p.parseOp()
 		if op.Name == "-" && p.tok.Offset-op.Pos() == 1 {
-			return &ast.UnaryExpr{
+			return &ast.UnaryOp{
 				Op:   op,
 				Expr: p.parseTerm(),
 			}
@@ -233,7 +233,7 @@ func (p *parser) parseExpr() ast.Expr {
 	}
 
 	if p.isApplicable() || p.is(token.Op) {
-		return p.parseBinaryExpr(term, 0)
+		return p.parseBinaryOp(term, 0)
 	}
 
 	return term
@@ -250,9 +250,9 @@ func (p *parser) isApplicable() bool {
 
 const errorMsgMultipleNonAssocOps = `Binary operators %s and %s are non associative and have the same precedence. Consider using parenthesis to disambiguate.`
 
-func (p *parser) parseBinaryExpr(lhs ast.Expr, precedence uint) ast.Expr {
+func (p *parser) parseBinaryOp(lhs ast.Expr, precedence uint) ast.Expr {
 	if p.isApplicable() {
-		return p.parseBinaryExpr(&ast.FuncApp{
+		return p.parseBinaryOp(&ast.FuncApp{
 			Func: lhs,
 			Args: []ast.Expr{
 				p.parseTerm(),
@@ -274,15 +274,15 @@ func (p *parser) parseBinaryExpr(lhs ast.Expr, precedence uint) ast.Expr {
 			(opInfo.Precedence > prevOp.Precedence ||
 				(opInfo.Associativity == operator.Right &&
 					opInfo.Precedence == prevOp.Precedence)) {
-			rhs = p.parseBinaryExpr(rhs, opInfo.Precedence)
+			rhs = p.parseBinaryOp(rhs, opInfo.Precedence)
 			opInfo = p.opInfo(p.tok.Value)
 		}
 
 		if p.tok.Type != token.Op {
-			rhs = p.parseBinaryExpr(rhs, 0)
+			rhs = p.parseBinaryOp(rhs, 0)
 		}
 
-		lhs = &ast.BinaryExpr{
+		lhs = &ast.BinaryOp{
 			Op:  op,
 			Lhs: lhs,
 			Rhs: rhs,

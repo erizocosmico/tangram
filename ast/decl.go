@@ -17,17 +17,26 @@ type ExposedIdent struct {
 	Exposing *ExposingList
 }
 
+// NewExposedIdent creates a new exposed identifier.
 func NewExposedIdent(ident *Ident) *ExposedIdent {
 	return &ExposedIdent{Ident: ident}
 }
 
-func (i *ExposedIdent) Pos() token.Pos { return i.Pos() }
-func (i *ExposedIdent) End() token.Pos { return i.Exposing.End() }
+func (i *ExposedIdent) Pos() token.Pos { return i.Ident.Pos() }
+func (i *ExposedIdent) End() token.Pos {
+	if i.Exposing != nil {
+		return i.Exposing.End()
+	}
+	return i.Ident.End()
+}
 
 // ExposingList is a list of exposed identifiers delimited by parenthesis.
 type ExposingList struct {
+	// Idents is the list of identifiers exposed.
 	Idents []*ExposedIdent
+	// Lparen is the position of the opening parenthesis.
 	Lparen token.Pos
+	// Rparen is the position of the closing parenthesis.
 	Rparen token.Pos
 }
 
@@ -37,8 +46,11 @@ func (l *ExposingList) End() token.Pos { return l.Rparen }
 // ModuleDecl is a node representing a module declaration and contains the
 // name of the module and the identifiers it exposes, if any.
 type ModuleDecl struct {
-	Name     Expr
-	Module   token.Pos
+	// Name of the module.
+	Name Expr
+	// Module is the position of the "module" keyword.
+	Module token.Pos
+	// Exposing is the list of exposed identifiers, if any.
 	Exposing *ExposingList
 }
 
@@ -55,9 +67,13 @@ func (d *ModuleDecl) isDecl() {}
 // imported module as well as its alias, if any, and the exposed identifiers,
 // if any.
 type ImportDecl struct {
-	Module   Expr
-	Alias    *Ident
-	Import   token.Pos
+	// Module is the name of the imported module.
+	Module Expr
+	// Alias is the name of the alias for the module, if any.
+	Alias *Ident
+	// Import is the position of the "import" keyword.
+	Import token.Pos
+	// Exposing is the list of identifiers exposed, if any.
 	Exposing *ExposingList
 }
 
@@ -74,10 +90,14 @@ func (d *ImportDecl) isDecl() {}
 // It contains the operator, the priority given and the associativity of the
 // operator.
 type InfixDecl struct {
+	// InfixPos is the position of the "infix", "infixl" or "infixr" keyword.
 	InfixPos token.Pos
-	Assoc    Associativity
-	Op       *Ident
-	Priority *BasicLit
+	// Assoc is the associativity of the infix operator.
+	Assoc Associativity
+	// Op is the name of the operator.
+	Op *Ident
+	// Precence of the infix operator.
+	Precedence *BasicLit
 }
 
 // Associativity of the operator.
@@ -99,12 +119,18 @@ func (d InfixDecl) End() token.Pos { return d.Op.End() }
 // AliasDecl is a node representing a type alias declaration. It contains
 // the name of the alias and its arguments along with the type it is aliasing.
 type AliasDecl struct {
+	// TypePos is the position of the "type" keyword.
 	TypePos token.Pos
-	Alias   token.Pos
-	Eq      token.Pos
-	Name    *Ident
-	Args    []*Ident
-	Type    Type
+	// Alias is the position of the "alias" keyword.
+	Alias token.Pos
+	// Eq is the position of the "=" token.
+	Eq token.Pos
+	// Name is the name of the type.
+	Name *Ident
+	// Args are the optional arguments of the alias type.
+	Args []*Ident
+	// Type is the type definition of the alias type.
+	Type Type
 }
 
 func (d AliasDecl) isDecl()        {}
@@ -115,11 +141,16 @@ func (d AliasDecl) End() token.Pos { return d.Type.Pos() }
 // the name of the union type, the arguments and all the constructors for
 // the type.
 type UnionDecl struct {
+	// TypePos is the position of the "type" keyword.
 	TypePos token.Pos
-	Eq      token.Pos
-	Name    *Ident
-	Args    []*Ident
-	Types   []*Constructor
+	// Eq is the position of the "=" token.
+	Eq token.Pos
+	// Name is the name of the type.
+	Name *Ident
+	// Args are the optional arguments of the type.
+	Args []*Ident
+	// Types is the list of constructors for the union type.
+	Types []*Constructor
 }
 
 func (d UnionDecl) isDecl()        {}
@@ -134,17 +165,13 @@ func (d UnionDecl) End() token.Pos {
 // Constructor is a node representing the constructor of an union type.
 // It contains the name of the constructor and its type arguments.
 type Constructor struct {
+	// Name of the constructor.
 	Name *Ident
+	// Arguments of the constructor.
 	Args []Type
-	Pipe token.Pos
 }
 
-func (c Constructor) Pos() token.Pos {
-	if c.Pipe != token.NoPos {
-		return c.Pipe
-	}
-	return c.Name.Pos()
-}
+func (c Constructor) Pos() token.Pos { return c.Name.Pos() }
 func (c Constructor) End() token.Pos {
 	if len(c.Args) > 0 {
 		return c.Args[len(c.Args)-1].End()
@@ -152,10 +179,15 @@ func (c Constructor) End() token.Pos {
 	return c.Name.End()
 }
 
+// DestructuringAssignment represents a declaration using pattern matching on
+// the expression.
 type DestructuringAssignment struct {
-	Assign  token.Pos
+	// Eq is the position of the "=" token.
+	Eq token.Pos
+	// Pattern used for the declaration.
 	Pattern Pattern
-	Expr    Expr
+	// Expr being destructured.
+	Expr Expr
 }
 
 func (a *DestructuringAssignment) Pos() token.Pos { return a.Pattern.Pos() }
@@ -165,11 +197,17 @@ func (*DestructuringAssignment) isDecl()          {}
 // Definition is a node representing a definition of a value. A definition can
 // also be annotated with a type annotation.
 type Definition struct {
+	// Annotation is the optional type annotation of the definition.
 	Annotation *TypeAnnotation
-	Name       *Ident
-	Assign     token.Pos
-	Args       []Pattern
-	Body       Expr
+	// Name is the name being defined.
+	Name *Ident
+	// Eq is the position of the "=" token.
+	Eq token.Pos
+	// Args are the optional arguments of the definition. A definition with
+	// one ore more args is a function definition.
+	Args []Pattern
+	// Body of the definition.
+	Body Expr
 }
 
 func (*Definition) isDecl() {}
@@ -184,9 +222,12 @@ func (d *Definition) End() token.Pos { return d.Body.End() }
 
 // TypeAnnotation is the annotation of a declaration with its type.
 type TypeAnnotation struct {
-	Name  *Ident
+	// Name of the declaration being annotated.
+	Name *Ident
+	// Colon is the position of the ":" token.
 	Colon token.Pos
-	Type  Type
+	// Type of the declaration.
+	Type Type
 }
 
 func (ann *TypeAnnotation) Pos() token.Pos { return ann.Name.Pos() }

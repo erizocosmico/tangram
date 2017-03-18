@@ -180,7 +180,7 @@ func TestParseInfixDecl(t *testing.T) {
 			if c.ok {
 				require.Equal(c.assoc, decl.Assoc, c.input)
 				require.Equal(c.op, decl.Op.Name, c.input)
-				p, err := strconv.Atoi(decl.Priority.Value)
+				p, err := strconv.Atoi(decl.Precedence.Value)
 				require.Nil(err, c.input)
 				require.Equal(c.priority, p, c.input)
 			} else {
@@ -265,7 +265,7 @@ type alias Foo = {x: Int, y: Int} -> {fn: Int -> Int -> Point} -> Point
 func TestParseTypeAlias(t *testing.T) {
 	cases := []struct {
 		input  string
-		assert declAssert
+		assert DeclAssert
 	}{
 		{
 			inputAliasSimpleType,
@@ -522,7 +522,7 @@ type Foo a b = A {a: a} | B {b: b, c: String} | C (List Int)
 func TestParseTypeUnion(t *testing.T) {
 	cases := []struct {
 		input  string
-		assert declAssert
+		assert DeclAssert
 	}{
 		{
 			inputUnionOne,
@@ -600,7 +600,7 @@ foo = 5`
 func TestParseDefinition(t *testing.T) {
 	cases := []struct {
 		input  string
-		assert declAssert
+		assert DeclAssert
 	}{
 		{
 			inputLiteral,
@@ -639,7 +639,7 @@ func TestParseDefinition(t *testing.T) {
 func TestParseDestructuringAssignment(t *testing.T) {
 	cases := []struct {
 		input  string
-		assert declAssert
+		assert DeclAssert
 	}{
 		{
 			`( a, b ) = ( 1, 2 )`,
@@ -689,7 +689,7 @@ func TestParseDestructuringAssignment(t *testing.T) {
 func TestParsePattern(t *testing.T) {
 	cases := []struct {
 		input  string
-		assert patternAssert
+		assert PatternAssert
 	}{
 		{
 			`_`,
@@ -774,7 +774,7 @@ func TestParsePattern(t *testing.T) {
 func TestParseType(t *testing.T) {
 	cases := []struct {
 		input  string
-		assert typeAssert
+		assert TypeAssert
 	}{
 		{
 			"List.List",
@@ -819,7 +819,7 @@ func TestParseType(t *testing.T) {
 func TestParseExpr(t *testing.T) {
 	cases := []struct {
 		input  string
-		assert exprAssert
+		assert ExprAssert
 	}{
 		{`5`, Literal(ast.Int, "5")},
 		{`"hello world"`, Literal(ast.String, `"hello world"`)},
@@ -968,7 +968,7 @@ func TestParseExpr(t *testing.T) {
 		},
 		{
 			`f <| g a b`,
-			BinaryExpr(
+			BinaryOp(
 				"<|",
 				Identifier("f"),
 				FuncApp(
@@ -980,9 +980,9 @@ func TestParseExpr(t *testing.T) {
 		},
 		{
 			`a + b + c`,
-			BinaryExpr(
+			BinaryOp(
 				"+",
-				BinaryExpr(
+				BinaryOp(
 					"+",
 					Identifier("a"),
 					Identifier("b"),
@@ -992,12 +992,12 @@ func TestParseExpr(t *testing.T) {
 		},
 		{
 			`a + b * c - d`,
-			BinaryExpr(
+			BinaryOp(
 				"-",
-				BinaryExpr(
+				BinaryOp(
 					"+",
 					Identifier("a"),
-					BinaryExpr(
+					BinaryOp(
 						"*",
 						Identifier("b"),
 						Identifier("c"),
@@ -1030,14 +1030,14 @@ func TestParseExpr(t *testing.T) {
 		},
 		{
 			`a + -b * c - d`,
-			BinaryExpr(
+			BinaryOp(
 				"-",
-				BinaryExpr(
+				BinaryOp(
 					"+",
 					Identifier("a"),
-					BinaryExpr(
+					BinaryOp(
 						"*",
-						UnaryExpr(
+						UnaryOp(
 							"-",
 							Identifier("b"),
 						),
@@ -1077,10 +1077,10 @@ func TestParseExpr_NonAssocOp(t *testing.T) {
 		p := stringParser(t, input)
 		expr := p.parseExpr()
 
-		BinaryExpr(
+		BinaryOp(
 			"==",
 			Identifier("a"),
-			BinaryExpr(
+			BinaryOp(
 				"+",
 				Identifier("b"),
 				Identifier("c"),
@@ -1095,10 +1095,10 @@ func TestParseExpr_NonAssocOp(t *testing.T) {
 		p := stringParser(t, input)
 		expr := p.parseExpr()
 
-		BinaryExpr(
+		BinaryOp(
 			"==",
 			Identifier("a"),
-			BinaryExpr(
+			BinaryOp(
 				":>",
 				Identifier("b"),
 				Identifier("c"),
