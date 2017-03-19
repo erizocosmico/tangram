@@ -32,7 +32,7 @@ func TestParseFile_OnlyFixity(t *testing.T) {
 	require := require.New(t)
 
 	p := stringParser(t, parseFixture)
-	p.mode = ImportsAndFixity
+	p.mode = SkipDefinitions
 	var f *ast.File
 	func() {
 		defer assertEOF(t, "TestParseFile_OnlyFixity", false)

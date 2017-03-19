@@ -13,25 +13,43 @@ type Emitter interface {
 	Emit(string, []Diagnostic) error
 }
 
+// Errors is an emitter that emits Go errors with the diagnostics.
+func Errors(warnings bool) Emitter {
+	return &errorEmitter{warnings}
+}
+
+type errorEmitter struct {
+	warnings bool
+}
+
+func (e *errorEmitter) Emit(file string, ds []Diagnostic) error {
+	var buf bytes.Buffer
+	emitter := writerEmitter{&buf, e.warnings, false}
+	if err := emitter.Emit(file, ds); err != nil {
+		return err
+	}
+
+	return fmt.Errorf("problems found at file: %s\n\n%s", file, buf.String())
+}
+
 type writerEmitter struct {
 	w        io.Writer
 	warnings bool
 	colors   bool
 }
 
-func (e *writerEmitter) Emit(file string, ds []Diagnostic) error {
-	if !e.warnings {
-		var hasErrors bool
-		for _, d := range ds {
-			if d.Severity() != Warn {
-				hasErrors = true
-				break
-			}
+func hasErrors(ds []Diagnostic) bool {
+	for _, d := range ds {
+		if d.Severity() != Warn {
+			return true
 		}
+	}
+	return false
+}
 
-		if !hasErrors {
-			return nil
-		}
+func (e *writerEmitter) Emit(file string, ds []Diagnostic) error {
+	if !e.warnings && !hasErrors(ds) {
+		return nil
 	}
 
 	if err := e.print("I found problems at file: %s\n\n", file); err != nil {
@@ -39,8 +57,10 @@ func (e *writerEmitter) Emit(file string, ds []Diagnostic) error {
 	}
 
 	for _, d := range ds {
-		if err := e.emitDiagnostic(file, d); err != nil {
-			return err
+		if e.warnings || d.Severity() != Warn {
+			if err := e.emitDiagnostic(file, d); err != nil {
+				return err
+			}
 		}
 	}
 

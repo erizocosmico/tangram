@@ -1,9 +1,9 @@
 package parser
 
 import (
-	"errors"
+	"bytes"
 	"io"
-	"strings"
+	"io/ioutil"
 
 	"github.com/erizocosmico/elmo/ast"
 	"github.com/erizocosmico/elmo/diagnostic"
@@ -17,14 +17,26 @@ import (
 type ParseMode int
 
 const (
-	// FullParse parses completely the source file.
-	FullParse ParseMode = iota
-	// OnlyImports parses only package definition and imports.
-	OnlyImports
-	// ImportsAndFixity parses only package definition, imports and
-	// fixity declarations.
-	ImportsAndFixity
+	// FullParse will parse a module and all the module imported, parsing
+	// all the content in all modules.
+	FullParse ParseMode = 1 << iota
+	// JustModule will parse just the given module, not parsing any of the
+	// modules imported.
+	JustModule
+	// SkipDefinitions will parse only module declaration, imports and fixity
+	// declarations.
+	SkipDefinitions
+	// StderrDiagnostics will send the diagnostics to stderr instead of
+	// returning them as an error.
+	StderrDiagnostics
+	// SkipWarnings will skip the warning diagnostics.
+	SkipWarnings
 )
+
+// Is reports whether the given flag is present in the current parse mode.
+func (pm ParseMode) Is(flag ParseMode) bool {
+	return pm&flag > 0
+}
 
 // Session represents the current parsing session.
 type Session struct {
@@ -43,39 +55,95 @@ func NewSession(
 	return &Session{d, cm, ops}
 }
 
-// ParseFile returns the AST representation of the given file.
-func ParseFile(fileName string, src io.Reader, mode ParseMode) (f *ast.File, err error) {
-	// TODO(erizocosmico): codemap already knows how to load the file,
-	// it's not necessary to pass it as an argument
-	// TODO(erizocosmico): correctly set root
+// Parse will parse the file at the given path and all its imported modules
+// with the given mode of parsing.
+func Parse(path string, mode ParseMode) (f *ast.File, err error) {
+	// TODO: use proper Fs Loader per project
 	cm := source.NewCodeMap(source.NewFsLoader("."))
 	defer cm.Close()
-	sess := NewSession(
-		diagnostic.NewDiagnoser(cm, diagnostic.Stderr(true, true)),
-		cm,
-		operator.NewTable(),
-	)
+
+	var emitter diagnostic.Emitter
+	if mode.Is(StderrDiagnostics) {
+		emitter = diagnostic.Stderr(!mode.Is(SkipWarnings), true)
+	} else {
+		emitter = diagnostic.Errors(!mode.Is(SkipWarnings))
+	}
+
+	var optable *operator.Table
+	if mode.Is(JustModule) {
+		optable = operator.BuiltinTable()
+	} else {
+		optable = operator.NewTable()
+	}
+
+	sess := NewSession(diagnostic.NewDiagnoser(cm, emitter), cm, optable)
+
 	p := newParser(sess)
-	s := scanner.New(fileName, src)
+	if err := cm.Add(path); err != nil {
+		return nil, err
+	}
 
-	defer func() {
-		if r := recover(); r != nil {
-			if _, ok := r.(bailout); !ok {
-				panic(r)
-			}
-		}
-
-		if len(p.errors) > 0 {
-			var errs []string
-			for _, e := range p.errors {
-				errs = append(errs, e.Error())
-			}
-			err = errors.New(strings.Join(errs, "\n"))
-		}
-	}()
+	source := cm.Source(path)
+	s := scanner.New(source.Path, source.Src)
 
 	s.Run()
-	p.init(fileName, s, mode)
+	p.init(path, s, mode)
+	defer catchBailout()
+	if !mode.Is(StderrDiagnostics) {
+		defer func() {
+			err = sess.Emit()
+		}()
+	} else {
+		defer sess.Emit()
+	}
+	// TODO: follow imports
 	f = p.parseFile()
 	return
+}
+
+// ParseFrom parses the contents of the given reader and returns the
+// corresponding AST file. It will only parse itself and not the imported
+// modules, even if it's explicitly requested in the ParseMode.
+// All parsing errors encountered will be retuned in the error return value,
+// even though StderrDiagnostics mode is present in mode.
+func ParseFrom(name string, src io.Reader, mode ParseMode) (f *ast.File, err error) {
+	loader := source.NewMemLoader()
+	var content []byte
+	content, err = ioutil.ReadAll(src)
+	if err != nil {
+		return nil, err
+	}
+
+	loader.Add(name, string(content))
+	cm := source.NewCodeMap(loader)
+	defer cm.Close()
+
+	sess := NewSession(
+		diagnostic.NewDiagnoser(cm, diagnostic.Errors(!mode.Is(SkipWarnings))),
+		cm,
+		operator.BuiltinTable(),
+	)
+
+	p := newParser(sess)
+	s := scanner.New(name, bytes.NewBuffer(content))
+	s.Run()
+	p.init(name, s, mode)
+	defer catchBailout()
+	defer func() {
+		err = sess.Emit()
+	}()
+	f = p.parseFile()
+	return
+
+}
+
+// catchBailout catches "bailout", which means parser has exited on purpose
+// due to errors during the parsing. If it's not a bailout the error comes from
+// somewhere else and is panicked again.
+func catchBailout() {
+	if r := recover(); r != nil {
+		if _, ok := r.(bailout); !ok {
+			panic(r)
+		}
+	}
 }
