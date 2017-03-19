@@ -17,6 +17,46 @@ func NewTable() *Table {
 	}
 }
 
+// BuiltinTable creates a new operator table with all the builtin operators
+// loaded. This is used for parsing single modules. If all the imports are not
+// parsed, core will not be parsed and thus all expressions using the builtin
+// operators might not be correctly parsed.
+func BuiltinTable() *Table {
+	t := NewTable()
+	for _, op := range builtinOps {
+		t.AddBuiltin(op.name, op.assoc, op.prec)
+	}
+	return t
+}
+
+var builtinOps = []struct {
+	name  string
+	assoc Associativity
+	prec  uint
+}{
+	{">>", Left, 9},
+	{"<<", Right, 9},
+	{"^", Right, 8},
+	{"*", Left, 7},
+	{"%", Left, 7},
+	{"/", Left, 7},
+	{"//", Left, 7},
+	{"+", Left, 6},
+	{"-", Left, 6},
+	{"++", Right, 5},
+	{"::", Right, 5},
+	{"==", NonAssoc, 4},
+	{"/=", NonAssoc, 4},
+	{"<", NonAssoc, 4},
+	{">", NonAssoc, 4},
+	{"<=", NonAssoc, 4},
+	{">=", NonAssoc, 4},
+	{"&&", Right, 3},
+	{"||", Right, 2},
+	{"<|", Right, 0},
+	{"|>", Left, 0},
+}
+
 // Add inserts the given operator and its data in the operator table. It
 // returns an error if the operator is a builtin or has already been defined.
 func (t *Table) Add(name, path string, assoc Associativity, precedence uint) error {

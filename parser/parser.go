@@ -59,15 +59,13 @@ func (p *parser) init(fileName string, s *scanner.Scanner, mode ParseMode) {
 func (p *parser) parseFile() *ast.File {
 	mod := p.parseModule()
 	imports := p.parseImports()
-	if p.mode == ImportsAndFixity {
+	if p.mode.Is(SkipDefinitions) {
 		p.skipUntilNextFixity()
 	}
 
 	var decls []ast.Decl
-	if p.mode == FullParse || p.mode == ImportsAndFixity {
-		for p.tok.Type != token.EOF {
-			decls = append(decls, p.parseDecl())
-		}
+	for p.tok.Type != token.EOF {
+		decls = append(decls, p.parseDecl())
 	}
 
 	return &ast.File{
@@ -353,7 +351,7 @@ func (p *parser) parseDecl() ast.Decl {
 	p.finishedDecl()
 	p.endRegion()
 
-	if p.mode == ImportsAndFixity {
+	if p.mode.Is(SkipDefinitions) {
 		p.skipUntilNextFixity()
 	}
 
