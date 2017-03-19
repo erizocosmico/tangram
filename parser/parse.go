@@ -97,7 +97,7 @@ func Parse(path string, mode ParseMode) (f *ast.File, err error) {
 		defer sess.Emit()
 	}
 	// TODO: follow imports
-	f = p.parseFile()
+	f = parseFile(p)
 	return
 }
 
@@ -132,7 +132,7 @@ func ParseFrom(name string, src io.Reader, mode ParseMode) (f *ast.File, err err
 	defer func() {
 		err = sess.Emit()
 	}()
-	f = p.parseFile()
+	f = parseFile(p)
 	return
 
 }

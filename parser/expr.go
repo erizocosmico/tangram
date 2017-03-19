@@ -8,55 +8,103 @@ import (
 	"github.com/erizocosmico/elmo/token"
 )
 
-func (p *parser) parseTerm() ast.Expr {
+func parseTerm(p *parser) ast.Expr {
 	switch p.tok.Type {
 	case token.Int, token.Float, token.Char, token.String, token.True, token.False:
-		return p.parseLiteral()
+		return parseLiteral(p)
 	case token.LeftParen:
-		return p.parseLeftParen()
+		return parseLeftParen(p)
 	case token.LeftBracket:
-		return p.parseLeftBracket()
+		return parseLeftBracket(p)
 	case token.Dot:
 		p.expect(token.Dot)
-		return &ast.AccessorExpr{Field: p.parseLowerName()}
+		return &ast.AccessorExpr{Field: parseLowerName(p)}
 	case token.LeftBrace:
-		return p.parseLeftBrace()
+		return parseLeftBrace(p)
 	case token.Backslash:
-		return p.parseLambda()
+		return parseLambda(p)
 	case token.Op:
-		op := p.parseOp()
+		op := parseOp(p)
 		if op.Name == "-" && p.tok.Offset-op.Pos() == 1 {
 			return &ast.UnaryOp{
 				Op:   op,
-				Expr: p.parseTerm(),
+				Expr: parseTerm(p),
 			}
 		}
 
 		p.errorMessage(p.tok.Position, fmt.Sprintf("I ran into an unexpected operator %s. I was expecting an expression.", op.Name))
 		panic(bailout{})
 	case token.Identifier:
-		return p.parseIdentTerm()
+		return parseIdentTerm(p)
 	}
 
 	return nil
 }
 
-func (p *parser) parseLambda() *ast.Lambda {
+// parseQualifiedIdentifier parses an identifier and its qualifier, if any.
+// This should only be used outside of expressions, as expressions already
+// parse selector expressions by themselves.
+// This is specially to parse identifiers with an optional qualifier.
+func parseQualifiedIdentifier(p *parser) ast.Expr {
+	if isUpper(p.tok.Value) {
+		var path []*ast.Ident
+		path = append(path, parseUpperName(p))
+
+		for p.is(token.Dot) {
+			// TODO(erizocosmico): check the dot comes immediately after the name
+			p.expect(token.Dot)
+
+			if p.is(token.Identifier) {
+				if isLower(p.tok.Value) {
+					path = append(path, parseLowerName(p))
+					// a lower identifier means the end of the path
+					break
+				}
+				path = append(path, parseUpperName(p))
+			} else {
+				p.expect(token.Identifier)
+				return nil
+			}
+		}
+
+		if len(path) == 1 {
+			return path[0]
+		}
+
+		return ast.NewSelectorExpr(path...)
+	}
+	return parseLowerName(p)
+}
+
+func parseIdentifier(p *parser) *ast.Ident {
+	name := "_"
+	pos := p.tok.Position
+	if p.is(token.Identifier) {
+		name = p.tok.Value
+		p.next()
+	} else {
+		p.expect(token.Identifier)
+	}
+
+	return ast.NewIdent(name, pos)
+}
+
+func parseLambda(p *parser) *ast.Lambda {
 	l := &ast.Lambda{Backslash: p.expect(token.Backslash)}
-	l.Args = p.parseFuncArgs(token.Arrow)
+	l.Args = parseFuncArgs(p, token.Arrow)
 	l.Arrow = p.expect(token.Arrow)
-	l.Expr = p.parseExpr()
+	l.Expr = parseExpr(p)
 	return l
 }
 
-func (p *parser) parseLeftBrace() ast.Expr {
+func parseLeftBrace(p *parser) ast.Expr {
 	lbracePos := p.expect(token.LeftBrace)
 
 	backup := p.tok
-	ident := p.parseLowerName()
+	ident := parseLowerName(p)
 	if p.is(token.Pipe) {
 		pipe := p.expect(token.Pipe)
-		fields := p.parseRecordFields()
+		fields := parseRecordFields(p)
 		if len(fields) == 0 {
 			p.errorMessage(p.tok.Position, "I was expecting a list of record fields to update, but I got none.")
 			// TODO: irrecoverable?
@@ -73,7 +121,7 @@ func (p *parser) parseLeftBrace() ast.Expr {
 	}
 
 	p.backup(backup)
-	fields := p.parseRecordFields()
+	fields := parseRecordFields(p)
 	return &ast.RecordLit{
 		Lbrace: lbracePos,
 		Rbrace: p.expect(token.RightBrace),
@@ -81,11 +129,11 @@ func (p *parser) parseLeftBrace() ast.Expr {
 	}
 }
 
-func (p *parser) parseRecordFields() (fields []*ast.FieldAssign) {
+func parseRecordFields(p *parser) (fields []*ast.FieldAssign) {
 	for !p.is(token.RightBrace) && !p.is(token.EOF) {
-		name := p.parseLowerName()
+		name := parseLowerName(p)
 		eq := p.expect(token.Assign)
-		expr := p.parseExpr()
+		expr := parseExpr(p)
 		if !p.is(token.RightBrace) {
 			p.expect(token.Comma)
 		}
@@ -100,17 +148,17 @@ func (p *parser) parseRecordFields() (fields []*ast.FieldAssign) {
 	return
 }
 
-func (p *parser) parseLeftParen() ast.Expr {
+func parseLeftParen(p *parser) ast.Expr {
 	lparenPos := p.expect(token.LeftParen)
 	// if next token is an op, we're looking at an operator
 	// used as a function, e.g. `(++) a b`
 	if p.is(token.Op) {
-		op := p.parseOp()
+		op := parseOp(p)
 		p.expect(token.RightParen)
 		return op
 	}
 
-	expr := p.parseExpr()
+	expr := parseExpr(p)
 	if p.is(token.Comma) {
 		if expr == nil {
 			n := 1
@@ -128,7 +176,7 @@ func (p *parser) parseLeftParen() ast.Expr {
 			}
 		}
 
-		exprs := p.parseExprList(expr)
+		exprs := parseExprList(p, expr)
 		return &ast.TupleLit{
 			Lparen: lparenPos,
 			Rparen: p.expect(token.RightParen),
@@ -149,9 +197,9 @@ func (p *parser) parseLeftParen() ast.Expr {
 	}
 }
 
-func (p *parser) parseLeftBracket() ast.Expr {
+func parseLeftBracket(p *parser) ast.Expr {
 	lbracketPos := p.expect(token.LeftBracket)
-	expr := p.parseExpr()
+	expr := parseExpr(p)
 	if p.is(token.Comma) && !p.is(token.EOF) {
 		if expr == nil {
 			p.errorMessage(p.tok.Position, "I found ',', but I was expecting ']', whitespace or an expression")
@@ -159,7 +207,7 @@ func (p *parser) parseLeftBracket() ast.Expr {
 			panic(bailout{})
 		}
 
-		exprs := p.parseExprList(expr)
+		exprs := parseExprList(p, expr)
 		return &ast.ListLit{
 			Lbracket: lbracketPos,
 			Rbracket: p.expect(token.RightBracket),
@@ -179,13 +227,13 @@ func (p *parser) parseLeftBracket() ast.Expr {
 	return lit
 }
 
-func (p *parser) parseIdentTerm() ast.Expr {
-	var path = []*ast.Ident{p.parseIdentifier()}
+func parseIdentTerm(p *parser) ast.Expr {
+	var path = []*ast.Ident{parseIdentifier(p)}
 
 	for p.is(token.Dot) {
 		// TODO: check is right after prev ident
 		p.expect(token.Dot)
-		path = append(path, p.parseIdentifier())
+		path = append(path, parseIdentifier(p))
 	}
 
 	if len(path) == 1 {
@@ -195,35 +243,35 @@ func (p *parser) parseIdentTerm() ast.Expr {
 	return ast.NewSelectorExpr(path...)
 }
 
-func (p *parser) parseExprList(first ast.Expr) []ast.Expr {
+func parseExprList(p *parser, first ast.Expr) []ast.Expr {
 	var exprs = []ast.Expr{first}
 	for p.is(token.Comma) {
 		p.expect(token.Comma)
-		exprs = append(exprs, p.parseExpr())
+		exprs = append(exprs, parseExpr(p))
 	}
 	return exprs
 }
 
-func (p *parser) parseExpr() ast.Expr {
+func parseExpr(p *parser) ast.Expr {
 	switch p.tok.Type {
 	case token.If:
 		p.startRegion()
 		defer p.endRegion()
-		return p.parseIf()
+		return parseIf(p)
 	case token.Case:
 		p.startRegion()
 		defer p.endRegion()
-		return p.parseCase()
+		return parseCase(p)
 	case token.Let:
 		p.startRegion()
 		defer p.endRegion()
-		return p.parseLet()
+		return parseLet(p)
 	case token.EOF:
 		p.errorMessage(p.tok.Position, "Unexpected EOF")
 		panic(bailout{})
 	}
 
-	term := p.parseTerm()
+	term := parseTerm(p)
 	if term == nil {
 		return nil
 	}
@@ -233,7 +281,7 @@ func (p *parser) parseExpr() ast.Expr {
 	}
 
 	if p.isApplicable() || p.is(token.Op) {
-		return p.parseBinaryOp(term, 0)
+		return parseBinaryOp(p, term, 0)
 	}
 
 	return term
@@ -250,12 +298,12 @@ func (p *parser) isApplicable() bool {
 
 const errorMsgMultipleNonAssocOps = `Binary operators %s and %s are non associative and have the same precedence. Consider using parenthesis to disambiguate.`
 
-func (p *parser) parseBinaryOp(lhs ast.Expr, precedence uint) ast.Expr {
+func parseBinaryOp(p *parser, lhs ast.Expr, precedence uint) ast.Expr {
 	if p.isApplicable() {
-		return p.parseBinaryOp(&ast.FuncApp{
+		return parseBinaryOp(p, &ast.FuncApp{
 			Func: lhs,
 			Args: []ast.Expr{
-				p.parseTerm(),
+				parseTerm(p),
 			},
 		}, 0)
 	} else if !p.is(token.Op) {
@@ -265,8 +313,8 @@ func (p *parser) parseBinaryOp(lhs ast.Expr, precedence uint) ast.Expr {
 	opInfo := p.opInfo(p.tok.Value)
 	for p.tok.Type == token.Op &&
 		opInfo.Precedence >= precedence {
-		op := p.parseOp()
-		rhs := p.parseTerm()
+		op := parseOp(p)
+		rhs := parseTerm(p)
 		prevOp := opInfo
 		opInfo = p.opInfo(p.tok.Value)
 
@@ -274,12 +322,12 @@ func (p *parser) parseBinaryOp(lhs ast.Expr, precedence uint) ast.Expr {
 			(opInfo.Precedence > prevOp.Precedence ||
 				(opInfo.Associativity == operator.Right &&
 					opInfo.Precedence == prevOp.Precedence)) {
-			rhs = p.parseBinaryOp(rhs, opInfo.Precedence)
+			rhs = parseBinaryOp(p, rhs, opInfo.Precedence)
 			opInfo = p.opInfo(p.tok.Value)
 		}
 
 		if p.tok.Type != token.Op {
-			rhs = p.parseBinaryOp(rhs, 0)
+			rhs = parseBinaryOp(p, rhs, 0)
 		}
 
 		lhs = &ast.BinaryOp{
@@ -319,7 +367,7 @@ func flattenApp(app *ast.FuncApp) *ast.FuncApp {
 	return app
 }
 
-func (p *parser) parseLet() *ast.LetExpr {
+func parseLet(p *parser) *ast.LetExpr {
 	e := &ast.LetExpr{Let: p.expect(token.Let)}
 
 	p.setLineStart(p.tok.Column)
@@ -327,40 +375,40 @@ func (p *parser) parseLet() *ast.LetExpr {
 		switch p.tok.Type {
 		case token.Identifier:
 			if p.tok.Value != "_" {
-				e.Decls = append(e.Decls, p.parseDefinition())
+				e.Decls = append(e.Decls, parseDefinition(p))
 			} else {
-				e.Decls = append(e.Decls, p.parseDestructuringAssignment())
+				e.Decls = append(e.Decls, parseDestructuringAssignment(p))
 			}
 		case token.LeftParen, token.LeftBrace:
-			e.Decls = append(e.Decls, p.parseDestructuringAssignment())
+			e.Decls = append(e.Decls, parseDestructuringAssignment(p))
 		}
 	}
 
 	e.In = p.expect(token.In)
 	p.resetLineStart()
-	e.Body = p.parseExpr()
+	e.Body = parseExpr(p)
 	return e
 }
 
-func (p *parser) parseIf() *ast.IfExpr {
+func parseIf(p *parser) *ast.IfExpr {
 	var expr = new(ast.IfExpr)
 	expr.If = p.expect(token.If)
-	expr.Cond = p.parseExpr()
+	expr.Cond = parseExpr(p)
 	expr.Then = p.expect(token.Then)
-	expr.ThenExpr = p.parseExpr()
+	expr.ThenExpr = parseExpr(p)
 	expr.Else = p.expect(token.Else)
-	expr.ThenExpr = p.parseExpr()
+	expr.ThenExpr = parseExpr(p)
 	return expr
 }
 
-func (p *parser) parseCase() *ast.CaseExpr {
+func parseCase(p *parser) *ast.CaseExpr {
 	var expr = new(ast.CaseExpr)
 	expr.Case = p.expect(token.Case)
-	expr.Expr = p.parseExpr()
+	expr.Expr = parseExpr(p)
 	expr.Of = p.expect(token.Of)
 
 	for {
-		branch := p.parseCaseBranch()
+		branch := parseCaseBranch(p)
 		if branch == nil {
 			break
 		}
@@ -370,11 +418,11 @@ func (p *parser) parseCase() *ast.CaseExpr {
 	return expr
 }
 
-func (p *parser) parseCaseBranch() *ast.CaseBranch {
+func parseCaseBranch(p *parser) *ast.CaseBranch {
 	checkPoint := p.tok
 
 	var branch = new(ast.CaseBranch)
-	branch.Pattern = p.parsePattern(true)
+	branch.Pattern = parsePattern(p, true)
 	if !p.is(token.Arrow) {
 		// this is not a case branch, we need to backup
 		p.backup(checkPoint)
@@ -382,14 +430,14 @@ func (p *parser) parseCaseBranch() *ast.CaseBranch {
 	}
 
 	branch.Arrow = p.expect(token.Arrow)
-	branch.Expr = p.parseExpr()
+	branch.Expr = parseExpr(p)
 	return branch
 }
 
-func (p *parser) parseFuncApp(term ast.Expr) *ast.FuncApp {
+func parseFuncApp(p *parser, term ast.Expr) *ast.FuncApp {
 	app := &ast.FuncApp{Func: term}
 	for !p.is(token.EOF) && !p.atLineStart() {
-		term := p.parseTerm()
+		term := parseTerm(p)
 		if term == nil {
 			break
 		}
@@ -399,7 +447,7 @@ func (p *parser) parseFuncApp(term ast.Expr) *ast.FuncApp {
 	return app
 }
 
-func (p *parser) parseLiteral() *ast.BasicLit {
+func parseLiteral(p *parser) *ast.BasicLit {
 	var typ ast.BasicLitType
 	switch p.tok.Type {
 	case token.True, token.False:

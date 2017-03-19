@@ -50,7 +50,7 @@ func TestParseModule(t *testing.T) {
 
 			p := stringParser(t, c.input)
 			defer p.sess.Emit()
-			decl := p.parseModule()
+			decl := parseModule(p)
 
 			if c.ok {
 				var exposed [][]string
@@ -116,7 +116,7 @@ func TestParseImport(t *testing.T) {
 			defer assertEOF(t, c.input, c.eof)
 
 			p := stringParser(t, c.input)
-			decl := p.parseImport()
+			decl := parseImport(p)
 
 			if c.ok {
 				var exposed [][]string
@@ -176,7 +176,7 @@ func TestParseInfixDecl(t *testing.T) {
 			defer assertEOF(t, c.input, c.eof)
 
 			p := stringParser(t, c.input)
-			decl := p.parseInfixDecl().(*ast.InfixDecl)
+			decl := parseInfixDecl(p).(*ast.InfixDecl)
 			if c.ok {
 				require.Equal(c.assoc, decl.Assoc, c.input)
 				require.Equal(c.op, decl.Op.Name, c.input)
@@ -498,7 +498,7 @@ func TestParseTypeAlias(t *testing.T) {
 			defer assertEOF(t, "", false)
 
 			p := stringParser(t, c.input)
-			c.assert(t, p.parseTypeDecl())
+			c.assert(t, parseTypeDecl(p))
 		}()
 	}
 }
@@ -583,7 +583,7 @@ func TestParseTypeUnion(t *testing.T) {
 			defer assertEOF(t, "", false)
 
 			p := stringParser(t, c.input)
-			c.assert(t, p.parseTypeDecl())
+			c.assert(t, parseTypeDecl(p))
 		}()
 	}
 }
@@ -631,7 +631,7 @@ func TestParseDefinition(t *testing.T) {
 			defer assertEOF(t, "", false)
 
 			p := stringParser(t, c.input)
-			c.assert(t, p.parseDefinition())
+			c.assert(t, parseDefinition(p))
 		}()
 	}
 }
@@ -681,7 +681,7 @@ func TestParseDestructuringAssignment(t *testing.T) {
 			defer assertEOF(t, "", false)
 
 			p := stringParser(t, c.input)
-			c.assert(t, p.parseDestructuringAssignment())
+			c.assert(t, parseDestructuringAssignment(p))
 		})
 	}
 }
@@ -766,7 +766,7 @@ func TestParsePattern(t *testing.T) {
 			defer assertEOF(t, "", false)
 
 			p := stringParser(t, c.input)
-			c.assert(st, p.parsePattern(true))
+			c.assert(st, parsePattern(p, true))
 		})
 	}
 }
@@ -806,7 +806,7 @@ func TestParseType(t *testing.T) {
 			// the space here is because a type can not be at the start of a
 			// line
 			p := stringParser(t, " "+c.input)
-			typ := p.parseType()
+			typ := parseType(p)
 			if c.assert == nil {
 				require.Nil(t, typ, "expected type to be nil")
 			} else {
@@ -1055,7 +1055,7 @@ func TestParseExpr(t *testing.T) {
 			defer assertEOF(t, "", false)
 
 			p := stringParser(t, c.input)
-			c.assert(st, p.parseExpr())
+			c.assert(st, parseExpr(p))
 		})
 	}
 }
@@ -1067,7 +1067,7 @@ func TestParseExpr_NonAssocOp(t *testing.T) {
 
 		p := stringParser(t, input)
 		defer p.sess.Emit()
-		p.parseExpr()
+		parseExpr(p)
 	})
 
 	t.Run("followed by other assoc op", func(t *testing.T) {
@@ -1075,7 +1075,7 @@ func TestParseExpr_NonAssocOp(t *testing.T) {
 		defer assertEOF(t, input, false)
 
 		p := stringParser(t, input)
-		expr := p.parseExpr()
+		expr := parseExpr(p)
 
 		BinaryOp(
 			"==",
@@ -1093,7 +1093,7 @@ func TestParseExpr_NonAssocOp(t *testing.T) {
 		defer assertEOF(t, input, false)
 
 		p := stringParser(t, input)
-		expr := p.parseExpr()
+		expr := parseExpr(p)
 
 		BinaryOp(
 			"==",

@@ -37,7 +37,7 @@ func TestParseFile_OnlyFixity(t *testing.T) {
 	func() {
 		defer assertEOF(t, "TestParseFile_OnlyFixity", false)
 		defer p.sess.Emit()
-		f = p.parseFile()
+		f = parseFile(p)
 
 		require.Len(f.Imports, 2, "should have 2 imports")
 		name, ok := f.Module.Name.(fmt.Stringer)
