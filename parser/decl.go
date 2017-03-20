@@ -67,12 +67,15 @@ func parseImport(p *parser) *ast.ImportDecl {
 	return decl
 }
 
+// parseModuleName parses the name of a module in either module declarations
+// or import declarations. The difference between this function and
+// parseQualifiedIdentifier is the fact that this function enforces all the
+// terms of the qualified identifier to be uppercase names.
 func parseModuleName(p *parser) ast.Expr {
 	path := []*ast.Ident{parseUpperName(p)}
 
 	for p.is(token.Dot) {
-		// TODO(erizocosmico): check dot is right after the ident
-		p.expect(token.Dot)
+		p.expectAfter(token.Dot, path[len(path)-1])
 		path = append(path, parseUpperName(p))
 	}
 

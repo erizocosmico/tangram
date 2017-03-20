@@ -51,8 +51,7 @@ func parseQualifiedIdentifier(p *parser) ast.Expr {
 		path = append(path, parseUpperName(p))
 
 		for p.is(token.Dot) {
-			// TODO(erizocosmico): check the dot comes immediately after the name
-			p.expect(token.Dot)
+			p.expectAfter(token.Dot, path[len(path)-1])
 
 			if p.is(token.Identifier) {
 				if isLower(p.tok.Value) {
@@ -107,8 +106,10 @@ func parseLeftBrace(p *parser) ast.Expr {
 		fields := parseRecordFields(p)
 		if len(fields) == 0 {
 			p.errorMessage(p.tok.Position, "I was expecting a list of record fields to update, but I got none.")
-			// TODO: irrecoverable?
-			panic(bailout{})
+			return &ast.BadExpr{
+				StartPos: lbracePos,
+				EndPos:   p.expect(token.RightBrace),
+			}
 		}
 
 		return &ast.RecordUpdate{
@@ -167,8 +168,6 @@ func parseLeftParen(p *parser) ast.Expr {
 				n++
 			}
 
-			// TODO: this should be an operator
-			// change to an operator when Identifier and Operator are differnt
 			return &ast.TupleCtor{
 				Lparen: lparenPos,
 				Rparen: p.expect(token.RightParen),
@@ -203,8 +202,13 @@ func parseLeftBracket(p *parser) ast.Expr {
 	if p.is(token.Comma) && !p.is(token.EOF) {
 		if expr == nil {
 			p.errorMessage(p.tok.Position, "I found ',', but I was expecting ']', whitespace or an expression")
-			// TODO: not really recoverable?
-			panic(bailout{})
+			for !p.is(token.RightBracket) && !p.is(token.EOF) {
+				defer p.next()
+				return &ast.BadExpr{
+					StartPos: lbracketPos,
+					EndPos:   p.tok.Offset,
+				}
+			}
 		}
 
 		exprs := parseExprList(p, expr)
@@ -231,8 +235,7 @@ func parseIdentTerm(p *parser) ast.Expr {
 	var path = []*ast.Ident{parseIdentifier(p)}
 
 	for p.is(token.Dot) {
-		// TODO: check is right after prev ident
-		p.expect(token.Dot)
+		p.expectAfter(token.Dot, path[len(path)-1])
 		path = append(path, parseIdentifier(p))
 	}
 

@@ -97,7 +97,6 @@ func parseAtomType(p *parser) ast.Type {
 		return parseRecordType(p)
 	default:
 		p.errorExpectedOneOf(p.tok, token.LeftParen, token.LeftBrace, token.Identifier)
-		// TODO: think of a better way to recover from this error
 		panic(bailout{})
 	}
 }

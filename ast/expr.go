@@ -377,3 +377,13 @@ type ParensExpr struct {
 func (e *ParensExpr) Pos() token.Pos { return e.Lparen }
 func (e *ParensExpr) End() token.Pos { return e.Rparen }
 func (*ParensExpr) isExpr()          {}
+
+// BadExpr is a malformed expression.
+type BadExpr struct {
+	StartPos token.Pos
+	EndPos   token.Pos
+}
+
+func (e *BadExpr) Pos() token.Pos { return e.StartPos }
+func (e *BadExpr) End() token.Pos { return e.EndPos }
+func (*BadExpr) isExpr()          {}
