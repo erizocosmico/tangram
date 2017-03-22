@@ -19,25 +19,28 @@ type Loader interface {
 
 // FsLoader is a loader from file system.
 type FsLoader struct {
-	// TODO(erizocosmico): root should be found by the loader itself.
-	root string
+	pkg *pkg.Package
 }
 
-// NewFsLoader creates a new filesystem loader with the given root.
-func NewFsLoader(root string) *FsLoader {
-	return &FsLoader{root}
+// NewFsLoader creates a new filesystem loader with the given package.
+func NewFsLoader(pkg *pkg.Package) *FsLoader {
+	return &FsLoader{pkg}
 }
 
 // AbsPath returns the absolute path of the given path, which must be relative
 // to the root of the loader.
 func (l *FsLoader) AbsPath(path string) string {
-	return filepath.Join(l.root, path)
+	return filepath.Join(l.pkg.Root(), path)
 }
 
-// Load retrieves the source code of the file at the given path.
+// Load retrieves the source code of the file at the given module path.
 func (l *FsLoader) Load(path string) (io.ReadSeeker, error) {
-	p := l.AbsPath(path)
-	f, err := os.Open(p)
+	path, err := l.pkg.FindModule(path)
+	if err != nil {
+		return nil, err
+	}
+
+	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
