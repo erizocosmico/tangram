@@ -201,6 +201,14 @@ func (p *parser) expect(typ token.Type) token.Pos {
 	return pos.Offset
 }
 
+func (p *parser) expectAfter(typ token.Type, node ast.Node) token.Pos {
+	pos := p.tok.Position
+	if pos.Offset != node.End() {
+		p.errorMessage(pos, "I was expecting %q right after the previous token, but I ran into whitespace.", typ)
+	}
+	return p.expect(typ)
+}
+
 func (p *parser) expectType() ast.Type {
 	pos := p.tok.Position
 	typ := parseType(p)
@@ -263,11 +271,16 @@ func (p *parser) regionStart() *token.Position {
 }
 
 func (p *parser) region(start *token.Position) []string {
-	region, err := p.sess.Source(p.fileName).Region(start.Offset, p.tok.Offset+token.Pos(len(p.tok.Source)))
+	region, err := p.sess.
+		Source(p.fileName).
+		Region(
+			start.Offset,
+			p.tok.Offset+token.Pos(len(p.tok.Source)),
+		)
 	if err != nil {
-		// TODO(erizocosmico): should never happen, but handle it properly
-		panic(err)
+		panic(fmt.Errorf("unexpected error: %s", err))
 	}
+
 	return region
 }
 
