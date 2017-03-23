@@ -8,6 +8,7 @@ import (
 	"github.com/erizocosmico/elmo/ast"
 	"github.com/erizocosmico/elmo/diagnostic"
 	"github.com/erizocosmico/elmo/operator"
+	"github.com/erizocosmico/elmo/package"
 	"github.com/erizocosmico/elmo/scanner"
 	"github.com/erizocosmico/elmo/source"
 )
@@ -58,8 +59,12 @@ func NewSession(
 // Parse will parse the file at the given path and all its imported modules
 // with the given mode of parsing.
 func Parse(path string, mode ParseMode) (f *ast.File, err error) {
-	// TODO: use proper Fs Loader per project
-	cm := source.NewCodeMap(source.NewFsLoader("."))
+	pkg, err := pkg.Load(path)
+	if err != nil {
+		return nil, err
+	}
+
+	cm := source.NewCodeMap(source.NewFsLoader(pkg))
 	defer cm.Close()
 
 	var emitter diagnostic.Emitter
