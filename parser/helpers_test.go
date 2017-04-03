@@ -17,6 +17,7 @@ type (
 	AnnotationAssert  func(*testing.T, string, *ast.TypeAnnotation)
 	ExprAssert        func(*testing.T, ast.Expr)
 	PatternAssert     func(*testing.T, ast.Pattern)
+	BranchAssert      func(*testing.T, *ast.CaseBranch)
 )
 
 func Definition(
@@ -292,9 +293,9 @@ func FuncApp(fn ExprAssert, args ...ExprAssert) ExprAssert {
 	}
 }
 
-type fieldAssignAssert func(*testing.T, *ast.FieldAssign)
+type FieldAssignAssert func(*testing.T, *ast.FieldAssign)
 
-func RecordUpdate(v string, fields ...fieldAssignAssert) ExprAssert {
+func RecordUpdate(v string, fields ...FieldAssignAssert) ExprAssert {
 	return func(t *testing.T, expr ast.Expr) {
 		record, ok := expr.(*ast.RecordUpdate)
 		require.True(t, ok, "expected expr to be RecordUpdate, is %T", expr)
@@ -306,7 +307,7 @@ func RecordUpdate(v string, fields ...fieldAssignAssert) ExprAssert {
 	}
 }
 
-func RecordLiteral(fields ...fieldAssignAssert) ExprAssert {
+func RecordLiteral(fields ...FieldAssignAssert) ExprAssert {
 	return func(t *testing.T, expr ast.Expr) {
 		record, ok := expr.(*ast.RecordLit)
 		require.True(t, ok, "expected expr to be RecordLit, is %T", expr)
@@ -329,10 +330,47 @@ func Let(exprAssert ExprAssert, decls ...DeclAssert) ExprAssert {
 	}
 }
 
-func FieldAssign(name string, expr ExprAssert) fieldAssignAssert {
+func FieldAssign(name string, expr ExprAssert) FieldAssignAssert {
 	return func(t *testing.T, f *ast.FieldAssign) {
 		require.Equal(t, name, f.Field.Name, "invalid record field name")
 		expr(t, f.Expr)
+	}
+}
+
+func AccessorExpr(field string) ExprAssert {
+	return func(t *testing.T, e ast.Expr) {
+		acc, ok := e.(*ast.AccessorExpr)
+		require.True(t, ok, "expected expr to be AccessorExpr, is %T", e)
+		require.Equal(t, field, acc.Field.Name)
+	}
+}
+
+func IfExpr(cond, then, elseExpr ExprAssert) ExprAssert {
+	return func(t *testing.T, e ast.Expr) {
+		ifExpr, ok := e.(*ast.IfExpr)
+		require.True(t, ok, "expected expr to be IfExpr, is %T", e)
+		cond(t, ifExpr.Cond)
+		then(t, ifExpr.ThenExpr)
+		elseExpr(t, ifExpr.ElseExpr)
+	}
+}
+
+func CaseExpr(expr ExprAssert, branches ...BranchAssert) ExprAssert {
+	return func(t *testing.T, e ast.Expr) {
+		caseExpr, ok := e.(*ast.CaseExpr)
+		require.True(t, ok, "expected expr to be CaseExpr, is %T", e)
+		expr(t, caseExpr.Expr)
+		require.Len(t, caseExpr.Branches, len(branches))
+		for i := range branches {
+			branches[i](t, caseExpr.Branches[i])
+		}
+	}
+}
+
+func CaseBranch(pattern PatternAssert, expr ExprAssert) BranchAssert {
+	return func(t *testing.T, branch *ast.CaseBranch) {
+		pattern(t, branch.Pattern)
+		expr(t, branch.Expr)
 	}
 }
 

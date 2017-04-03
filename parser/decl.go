@@ -10,6 +10,7 @@ import (
 
 func parseModule(p *parser) *ast.ModuleDecl {
 	var decl = new(ast.ModuleDecl)
+	p.pushState(parsingDecl, 1)
 	p.startRegion()
 	decl.Module = p.expect(token.Module)
 	decl.Name = parseModuleName(p)
@@ -42,6 +43,7 @@ func parseImports(p *parser) []*ast.ImportDecl {
 func parseImport(p *parser) *ast.ImportDecl {
 	var decl = new(ast.ImportDecl)
 	p.startRegion()
+	p.pushState(parsingDecl, 1)
 	decl.Import = p.expect(token.Import)
 	decl.Module = parseModuleName(p)
 
@@ -152,6 +154,7 @@ func parseConstructorExposedIdents(p *parser) (idents []*ast.ExposedIdent) {
 }
 
 func parseDecl(p *parser) ast.Decl {
+	p.pushState(parsingDecl, p.tok.Column)
 	p.startRegion()
 	var decl ast.Decl
 	switch p.tok.Type {
@@ -300,6 +303,7 @@ func parseConstructor(p *parser) *ast.Constructor {
 	c.Args = parseTypeList(p)
 	return c
 }
+
 func parseDefinition(p *parser) ast.Decl {
 	decl := new(ast.Definition)
 

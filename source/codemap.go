@@ -162,6 +162,7 @@ func (s *Source) Region(start, end token.Pos) ([]string, error) {
 		}
 
 		buf.Write(l)
+		buf.WriteRune('\n')
 		if buf.Len() >= size {
 			break
 		}

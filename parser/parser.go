@@ -19,22 +19,10 @@ type parser struct {
 	unresolved []*ast.Ident
 	mode       ParseMode
 
-	// inNewDecl indicates the current token is at the start of the line,
-	// that is, we're parsing a new declaration.
-	// New declarations must be acknowledge before asking for a new token
-	// otherwise, an error will occur.
-	inNewDecl bool
-	// isStart indicates the current token is the first one of the parsing.
-	// What that means is that this token must be at the start of the line, as
-	// it begins a new declaration.
-	isStart bool
-	// ignoreNewDecl indicates if the parser must ignore tokens that are new
-	// declarations, and just treat them as if they weren't.
-	ignoreNewDecl bool
-	lineStart     []int
-	tok           *token.Token
-	errors        []error
-	regions       []*token.Position
+	tok     *token.Token
+	errors  []error
+	state   []state
+	regions []*token.Position
 }
 
 func newParser(sess *Session) *parser {
@@ -44,11 +32,8 @@ func newParser(sess *Session) *parser {
 type bailout struct{}
 
 func (p *parser) init(fileName string, s *scanner.Scanner, mode ParseMode) {
-	p.inNewDecl = false
-	p.isStart = true
-	p.resetLineStart()
-	p.ignoreNewDecl = false
 	p.scanner = s
+	p.state = []state{{parsingFile, 1, 1}}
 	p.fileName = fileName
 	p.mode = mode
 
@@ -76,11 +61,11 @@ func parseFile(p *parser) *ast.File {
 }
 
 func (p *parser) skipUntilNextFixity() {
-	p.ignoreNewDecl = true
+	p.pushState(skipping, 0)
 	for {
 		switch p.tok.Type {
 		case token.Infix, token.Infixr, token.Infixl, token.EOF:
-			p.ignoreNewDecl = false
+			p.popState()
 			return
 		}
 		p.next()
@@ -127,31 +112,38 @@ func parseOp(p *parser) *ast.Ident {
 	return &ast.Ident{NamePos: pos, Name: name}
 }
 
+func (p *parser) checkState(state state) {
+	switch state.mode {
+	case parsingDecl:
+		if p.atLineStart() && state.line != p.tok.Line {
+			p.errorMessage(p.tok.Position, "I encountered what looks like a new declaration, but the previous one has not been finished yet.")
+		}
+	case parsingFile:
+		if !p.atLineStart() {
+			p.errorMessage(p.tok.Position, "I expected a new declaration. All declarations need to start at the beginning of their line.")
+		}
+	case parsingLet:
+		if p.atLineStart() && !p.is(token.Let) && !p.is(token.In) {
+			p.errorExpectedOneOf(p.tok, token.In)
+		}
+	case parsingCaseBranch:
+		if p.tok.Column == 1 {
+			p.errorMessage(p.tok.Position, "I encountered what looks like a new declaration, but the previous one has not been finished yet.")
+		} else if p.tok.Column < state.lineStart {
+			p.errorMessage(p.tok.Position, "I was expecting a new case branch, but the indentation does not match the one in the previous branch.")
+		}
+	}
+}
+
 func (p *parser) next() {
-	// if the current position is a new declaration but it has not been
-	// acknowledged we need to report it
-	if p.inNewDecl {
-		p.errorMessage(p.tok.Position, "I encountered what looks like a new declaration, but the previous one has not been finished yet.")
-		// silence the error, or it will be repeated forever until the end of
-		// tokens
-		p.inNewDecl = false
+	if p.tok != nil {
+		p.checkState(p.currentState())
 	}
 
 	p.tok = p.scanner.Next()
 	if p.is(token.Comment) {
 		// ignore comments for now
 		p.next()
-	}
-
-	// if this is the first token and it's not at the beginning of the line
-	// it must be reported, as it must be a declaration
-	if p.isStart {
-		p.isStart = false
-		if !p.atLineStart() {
-			p.errorMessage(p.tok.Position, "I expected a new declaration. All declarations need to start at the beginning of their line.")
-		}
-	} else if !p.ignoreNewDecl && p.atLineStart() {
-		p.inNewDecl = true
 	}
 }
 
@@ -168,23 +160,11 @@ func (p *parser) peek() *token.Token {
 	return t
 }
 
-func (p *parser) setLineStart(col int) {
-	p.lineStart = append(p.lineStart, col)
-}
-
-func (p *parser) resetLineStart() {
-	if len(p.lineStart) <= 1 {
-		p.lineStart = []int{1}
-	} else {
-		p.lineStart = p.lineStart[:len(p.lineStart)-1]
-	}
-}
-
 // finishedDecl marks as finished the parsing of the previous declaration. It
 // generates an error otherwise.
 func (p *parser) finishedDecl() {
-	if p.is(token.EOF) || p.inNewDecl {
-		p.inNewDecl = false
+	if p.is(token.EOF) || p.currentState().mode == parsingDecl {
+		p.popState()
 		return
 	}
 
@@ -239,8 +219,12 @@ func (p *parser) is(typ token.Type) bool {
 	return p.tok.Type == typ
 }
 
+func (p *parser) currentState() state {
+	return p.state[len(p.state)-1]
+}
+
 func (p *parser) atLineStart() bool {
-	return p.tok.Column <= p.lineStart[len(p.lineStart)-1]
+	return p.tok.Column <= p.currentState().lineStart
 }
 
 func (p *parser) opInfo(name string) *operator.OpInfo {
@@ -330,4 +314,52 @@ func isLower(name string) bool {
 func isUpper(name string) bool {
 	r, _ := utf8.DecodeRuneInString(name)
 	return unicode.IsUpper(r)
+}
+
+type state struct {
+	mode      stateMode
+	lineStart int
+	line      int
+}
+
+type stateMode uint
+
+const (
+	parsingFile stateMode = iota
+	parsingDecl
+	parsingCase
+	parsingCaseBranch
+	parsingLet
+	skipping
+)
+
+func (m stateMode) String() string {
+	switch m {
+	case parsingFile:
+		return "parsingFile"
+	case parsingDecl:
+		return "parsingDecl"
+	case parsingCase:
+		return "parsingCase"
+	case parsingCaseBranch:
+		return "parsingCaseBranch"
+	case parsingLet:
+		return "parsingLet"
+	case skipping:
+		return "skipping"
+	default:
+		return "invalid"
+	}
+}
+
+func (p *parser) pushState(mode stateMode, lineStart int) {
+	p.state = append(p.state, state{mode, lineStart, p.tok.Line})
+}
+
+func (p *parser) popState() {
+	if len(p.state) <= 1 {
+		p.state = nil
+	} else {
+		p.state = p.state[:len(p.state)-1]
+	}
 }

@@ -801,7 +801,7 @@ func TestParseType(t *testing.T) {
 
 	for _, c := range cases {
 		func() {
-			defer assertEOF(t, "", false)
+			defer assertEOF(t, c.input, false)
 
 			// the space here is because a type can not be at the start of a
 			// line
@@ -814,6 +814,76 @@ func TestParseType(t *testing.T) {
 			}
 		}()
 	}
+}
+
+func TestParseIfExpr(t *testing.T) {
+	input := `if fn a b then 
+		foo a 
+	else 
+		bar b
+	`
+
+	expected := IfExpr(
+		FuncApp(
+			Identifier("fn"),
+			Identifier("a"),
+			Identifier("b"),
+		),
+		FuncApp(
+			Identifier("foo"),
+			Identifier("a"),
+		),
+		FuncApp(
+			Identifier("bar"),
+			Identifier("b"),
+		),
+	)
+
+	mustParseExpr(t, input, expected)
+}
+
+func TestParseCaseExpr(t *testing.T) {
+	input := `case fn a b of
+	Foo a -> fn a
+	Bar b -> fn b
+	_ -> if a > b then 
+			a 
+		else 
+			b
+	`
+
+	expected := CaseExpr(
+		FuncApp(
+			Identifier("fn"),
+			Identifier("a"),
+			Identifier("b"),
+		),
+		CaseBranch(
+			CtorPattern("Foo", VarPattern("a")),
+			FuncApp(Identifier("fn"), Identifier("a")),
+		),
+		CaseBranch(
+			CtorPattern("Bar", VarPattern("b")),
+			FuncApp(Identifier("fn"), Identifier("b")),
+		),
+		CaseBranch(
+			AnythingPattern,
+			IfExpr(
+				BinaryOp(">", Identifier("a"), Identifier("b")),
+				Identifier("a"),
+				Identifier("b"),
+			),
+		),
+	)
+
+	mustParseExpr(t, input, expected)
+}
+
+func mustParseExpr(t *testing.T, input string, assert ExprAssert) {
+	defer assertEOF(t, input, false)
+	p := stringParser(t, input)
+	defer p.sess.Emit()
+	assert(t, parseExpr(p))
 }
 
 func TestParseExpr(t *testing.T) {
@@ -829,6 +899,7 @@ func TestParseExpr(t *testing.T) {
 		{`'a'`, Literal(ast.Char, `'a'`)},
 		{`()`, TupleLiteral()},
 		{`[]`, ListLiteral()},
+		{`.x`, AccessorExpr("x")},
 		{
 			`(1, 2, 3)`,
 			TupleLiteral(
@@ -923,7 +994,7 @@ func TestParseExpr(t *testing.T) {
 
 				( a, b ) = qux
 
-				{ x, y } = baz
+				{ x, y } = baz a b
 
 				mux : Int
 				mux = 7
@@ -953,7 +1024,11 @@ func TestParseExpr(t *testing.T) {
 						VarPattern("x"),
 						VarPattern("y"),
 					),
-					Identifier("baz"),
+					FuncApp(
+						Identifier("baz"),
+						Identifier("a"),
+						Identifier("b"),
+					),
 				),
 				Definition("mux",
 					TypeAnnotation(BasicType("Int")),
@@ -1047,6 +1122,68 @@ func TestParseExpr(t *testing.T) {
 				Identifier("d"),
 			),
 		},
+		{
+			`fn a b == 1`,
+			BinaryOp(
+				"==",
+				FuncApp(
+					Identifier("fn"),
+					Identifier("a"),
+					Identifier("b"),
+				),
+				Literal(ast.Int, "1"),
+			),
+		},
+		{
+			`1 + 2 + 3`,
+			BinaryOp(
+				"+",
+				BinaryOp(
+					"+",
+					Literal(ast.Int, "1"),
+					Literal(ast.Int, "2"),
+				),
+				Literal(ast.Int, "3"),
+			),
+		},
+		{
+			`fn a <| a b`,
+			BinaryOp(
+				"<|",
+				FuncApp(
+					Identifier("fn"),
+					Identifier("a"),
+				),
+				FuncApp(
+					Identifier("a"),
+					Identifier("b"),
+				),
+			),
+		},
+		{
+			`fn a 1 + fn b c + fn d e`,
+			BinaryOp(
+				"+",
+				FuncApp(
+					Identifier("fn"),
+					Identifier("a"),
+					Literal(ast.Int, "1"),
+				),
+				BinaryOp(
+					"+",
+					FuncApp(
+						Identifier("fn"),
+						Identifier("b"),
+						Identifier("c"),
+					),
+					FuncApp(
+						Identifier("fn"),
+						Identifier("d"),
+						Identifier("e"),
+					),
+				),
+			),
+		},
 	}
 
 	for _, c := range cases {
@@ -1055,7 +1192,8 @@ func TestParseExpr(t *testing.T) {
 			defer assertEOF(t, "", false)
 
 			p := stringParser(t, c.input)
-			c.assert(st, parseExpr(p))
+			expr := parseExpr(p)
+			c.assert(st, expr)
 		})
 	}
 }
@@ -1142,5 +1280,6 @@ func stringParser(t *testing.T, str string) *parser {
 	sess := NewSession(d, cm, opTable)
 	var p = newParser(sess)
 	p.init("test", scanner, FullParse)
+	p.pushState(skipping, 1)
 	return p
 }

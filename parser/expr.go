@@ -279,38 +279,34 @@ func parseExpr(p *parser) ast.Expr {
 		return nil
 	}
 
-	if _, ok := term.(*ast.BasicLit); ok || p.atLineStart() {
-		return term
-	}
-
-	if p.isApplicable() || p.is(token.Op) {
-		return parseBinaryOp(p, term, 0)
-	}
-
-	return term
+	return parseBinaryOp(p, term, 0)
 }
 
-func (p *parser) isApplicable() bool {
+func atExprFinalizer(p *parser) bool {
 	switch p.tok.Type {
-	case token.Int, token.Float, token.String, token.Char, token.True, token.False,
-		token.Identifier, token.LeftBrace, token.LeftParen, token.LeftBracket:
+	case token.Comma, token.RightBrace, token.RightParen,
+		token.RightBracket, token.Then, token.Else, token.Of,
+		token.EOF:
 		return true
 	}
-	return false
+	return p.atLineStart()
 }
 
 const errorMsgMultipleNonAssocOps = `Binary operators %s and %s are non associative and have the same precedence. Consider using parenthesis to disambiguate.`
 
 func parseBinaryOp(p *parser, lhs ast.Expr, precedence uint) ast.Expr {
-	if p.isApplicable() {
+	lhs = tryFlattenApp(lhs)
+	if atExprFinalizer(p) {
+		return lhs
+	}
+
+	if !p.is(token.Op) {
 		return parseBinaryOp(p, &ast.FuncApp{
 			Func: lhs,
 			Args: []ast.Expr{
 				parseTerm(p),
 			},
 		}, 0)
-	} else if !p.is(token.Op) {
-		return tryFlattenApp(lhs)
 	}
 
 	opInfo := p.opInfo(p.tok.Value)
@@ -350,7 +346,7 @@ func parseBinaryOp(p *parser, lhs ast.Expr, precedence uint) ast.Expr {
 		}
 	}
 
-	return tryFlattenApp(lhs)
+	return lhs
 }
 
 func tryFlattenApp(expr ast.Expr) ast.Expr {
@@ -372,9 +368,11 @@ func flattenApp(app *ast.FuncApp) *ast.FuncApp {
 
 func parseLet(p *parser) *ast.LetExpr {
 	e := &ast.LetExpr{Let: p.expect(token.Let)}
+	p.pushState(parsingLet, p.tok.Column)
 
-	p.setLineStart(p.tok.Column)
+	lineStart := p.tok.Column
 	for p.is(token.Identifier) || p.is(token.LeftParen) || p.is(token.LeftBrace) {
+		p.pushState(parsingDecl, lineStart)
 		switch p.tok.Type {
 		case token.Identifier:
 			if p.tok.Value != "_" {
@@ -385,11 +383,12 @@ func parseLet(p *parser) *ast.LetExpr {
 		case token.LeftParen, token.LeftBrace:
 			e.Decls = append(e.Decls, parseDestructuringAssignment(p))
 		}
+		p.popState()
 	}
 
 	e.In = p.expect(token.In)
-	p.resetLineStart()
 	e.Body = parseExpr(p)
+	p.popState()
 	return e
 }
 
@@ -400,54 +399,48 @@ func parseIf(p *parser) *ast.IfExpr {
 	expr.Then = p.expect(token.Then)
 	expr.ThenExpr = parseExpr(p)
 	expr.Else = p.expect(token.Else)
-	expr.ThenExpr = parseExpr(p)
+	expr.ElseExpr = parseExpr(p)
 	return expr
 }
 
 func parseCase(p *parser) *ast.CaseExpr {
 	var expr = new(ast.CaseExpr)
+	lineStart := p.tok.Column
 	expr.Case = p.expect(token.Case)
+	p.pushState(parsingCase, lineStart)
 	expr.Expr = parseExpr(p)
 	expr.Of = p.expect(token.Of)
 
-	for {
-		branch := parseCaseBranch(p)
+	lineStart = p.tok.Column
+	for !p.is(token.EOF) {
+		branch := parseCaseBranch(p, lineStart)
 		if branch == nil {
 			break
 		}
 		expr.Branches = append(expr.Branches, branch)
 	}
 
+	p.popState()
 	return expr
 }
 
-func parseCaseBranch(p *parser) *ast.CaseBranch {
+func parseCaseBranch(p *parser, lineStart int) *ast.CaseBranch {
 	checkPoint := p.tok
 
 	var branch = new(ast.CaseBranch)
+	p.pushState(parsingCaseBranch, lineStart)
 	branch.Pattern = parsePattern(p, true)
 	if !p.is(token.Arrow) {
 		// this is not a case branch, we need to backup
 		p.backup(checkPoint)
+		p.popState()
 		return nil
 	}
 
 	branch.Arrow = p.expect(token.Arrow)
 	branch.Expr = parseExpr(p)
+	p.popState()
 	return branch
-}
-
-func parseFuncApp(p *parser, term ast.Expr) *ast.FuncApp {
-	app := &ast.FuncApp{Func: term}
-	for !p.is(token.EOF) && !p.atLineStart() {
-		term := parseTerm(p)
-		if term == nil {
-			break
-		}
-
-		app.Args = append(app.Args, term)
-	}
-	return app
 }
 
 func parseLiteral(p *parser) *ast.BasicLit {
