@@ -75,8 +75,8 @@ func TestParseFull(t *testing.T) {
 	mainExpected := File(
 		Module("Main", ExposedIdent("..")),
 		[]ImportAssert{
-			Import("Internal.Dependency", ExposedIdent("maybeStr")),
-			Import("Dependency", ExposedIdent("?"), ExposedIdent("?:")),
+			Import("Internal.Dependency", nil, ExposedIdent("maybeStr")),
+			Import("Dependency", nil, ExposedIdent("?"), ExposedIdent("?:")),
 		},
 		Definition(
 			"main",

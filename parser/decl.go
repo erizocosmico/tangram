@@ -331,6 +331,7 @@ func parseDefinition(p *parser) ast.Decl {
 		decl.Annotation.Type = p.expectType()
 		stepOut()
 
+		indent, line = p.currentPos()
 		defName := parseIdentifierOrOp(p)
 		if defName.Name != name.Name {
 			p.errorMessage(

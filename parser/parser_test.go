@@ -2,7 +2,6 @@ package parser
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 	"testing"
 
@@ -15,7 +14,6 @@ import (
 )
 
 func TestParseModule(t *testing.T) {
-	require := require.New(t)
 	cases := []struct {
 		input   string
 		ok, eof bool
@@ -45,65 +43,50 @@ func TestParseModule(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		func() {
-			defer assertEOF(t, c.input, c.eof)
+		t.Run(c.input, func(t *testing.T) {
+			var exposed []ExposedIdentAssert
+			for _, e := range c.exposed {
+				exposed = append(exposed, ExposedIdent(e[0], e[1:]...))
+			}
 
+			defer assertEOF(t, c.input, c.eof)
 			p := stringParser(t, c.input)
 			defer p.sess.Emit()
-			decl := parseModule(p)
-
+			mod := parseModule(p)
 			if c.ok {
-				var exposed [][]string
-				if decl.Exposing != nil {
-					for _, e := range decl.Exposing.Idents {
-						var exp = []string{e.Name}
-						if e.Exposing != nil {
-							for _, e := range e.Exposing.Idents {
-								exp = append(exp, e.Name)
-							}
-						}
-						exposed = append(exposed, exp)
-					}
-				}
-
-				n, ok := decl.Name.(fmt.Stringer)
-				require.True(ok, "expected module name to be stringer")
-				require.Equal(c.module, n.String(), c.input)
-				require.Equal(c.exposed, exposed, c.input)
-			} else {
-				require.False(p.sess.IsOK(), c.input)
+				Module(c.module, exposed...)(t, mod)
 			}
-		}()
+			require.Equal(t, c.ok, p.sess.IsOK())
+		})
 	}
 }
 
 func TestParseImport(t *testing.T) {
-	require := require.New(t)
 	cases := []struct {
 		input   string
 		ok, eof bool
 		module  string
-		alias   string
+		alias   ExprAssert
 		exposed [][]string
 	}{
-		{"import Foo", true, false, "Foo", "", nil},
-		{"import foo", false, false, "", "", nil},
-		{"bar Foo", false, false, "", "", nil},
-		{"import Foo.Bar", true, false, "Foo.Bar", "", nil},
-		{"import Foo.Bar.Baz", true, false, "Foo.Bar.Baz", "", nil},
-		{"import Foo.Bar.Baz as Foo", true, false, "Foo.Bar.Baz", "Foo", nil},
-		{"import Foo exposing", false, true, "Foo", "", nil},
-		{"import Foo exposing ()", false, false, "Foo", "", nil},
-		{"import Foo exposing (..)", true, false, "Foo", "", [][]string{{".."}}},
-		{"import Foo as Bar exposing (..)", true, false, "Foo", "Bar", [][]string{{".."}}},
-		{"import foo as bar exposing (..)", false, false, "", "", nil},
-		{"import Foo exposing (foo)", true, false, "Foo", "", [][]string{{"foo"}}},
-		{"import Foo exposing (foo, bar)", true, false, "Foo", "", [][]string{{"foo"}, {"bar"}}},
-		{"import Foo exposing (foo, bar, baz)", true, false, "Foo", "", [][]string{{"foo"}, {"bar"}, {"baz"}}},
-		{"import Foo exposing (foo, (:>), baz)", true, false, "Foo", "", [][]string{{"foo"}, {":>"}, {"baz"}}},
-		{"import Foo exposing ((:>), (:>), (:>))", true, false, "Foo", "", [][]string{{":>"}, {":>"}, {":>"}}},
-		{"import Foo exposing (bar(..))", false, false, "", "", nil},
-		{"import Foo exposing (foo, Bar(..), Baz(A, B, C))", true, false, "Foo", "", [][]string{
+		{"import Foo", true, false, "Foo", nil, nil},
+		{"import foo", false, false, "", nil, nil},
+		{"bar Foo", false, false, "", nil, nil},
+		{"import Foo.Bar", true, false, "Foo.Bar", nil, nil},
+		{"import Foo.Bar.Baz", true, false, "Foo.Bar.Baz", nil, nil},
+		{"import Foo.Bar.Baz as Foo", true, false, "Foo.Bar.Baz", Identifier("Foo"), nil},
+		{"import Foo exposing", false, true, "Foo", nil, nil},
+		{"import Foo exposing ()", false, false, "Foo", nil, nil},
+		{"import Foo exposing (..)", true, false, "Foo", nil, [][]string{{".."}}},
+		{"import Foo as Bar exposing (..)", true, false, "Foo", Identifier("Bar"), [][]string{{".."}}},
+		{"import foo as bar exposing (..)", false, false, "", nil, nil},
+		{"import Foo exposing (foo)", true, false, "Foo", nil, [][]string{{"foo"}}},
+		{"import Foo exposing (foo, bar)", true, false, "Foo", nil, [][]string{{"foo"}, {"bar"}}},
+		{"import Foo exposing (foo, bar, baz)", true, false, "Foo", nil, [][]string{{"foo"}, {"bar"}, {"baz"}}},
+		{"import Foo exposing (foo, (:>), baz)", true, false, "Foo", nil, [][]string{{"foo"}, {":>"}, {"baz"}}},
+		{"import Foo exposing ((:>), (:>), (:>))", true, false, "Foo", nil, [][]string{{":>"}, {":>"}, {":>"}}},
+		{"import Foo exposing (bar(..))", false, false, "", nil, nil},
+		{"import Foo exposing (foo, Bar(..), Baz(A, B, C))", true, false, "Foo", nil, [][]string{
 			{"foo"},
 			{"Bar", ".."},
 			{"Baz", "A", "B", "C"},
@@ -111,38 +94,21 @@ func TestParseImport(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		func() {
-			defer assertEOF(t, c.input, c.eof)
-
-			p := stringParser(t, c.input)
-			decl := parseImport(p)
-
-			if c.ok {
-				var exposed [][]string
-				if decl.Exposing != nil {
-					for _, e := range decl.Exposing.Idents {
-						var exp = []string{e.Name}
-						if e.Exposing != nil {
-							for _, e := range e.Exposing.Idents {
-								exp = append(exp, e.Name)
-							}
-						}
-						exposed = append(exposed, exp)
-					}
-				}
-
-				mod, ok := decl.Module.(fmt.Stringer)
-				require.True(ok, "expected module name to be stringer")
-				require.Equal(c.module, mod.String(), c.input)
-				require.Equal(c.exposed, exposed, c.input)
-				if c.alias != "" {
-					require.NotNil(decl.Alias, c.input)
-					require.Equal(c.alias, decl.Alias.Name, c.input)
-				}
-			} else {
-				require.False(p.sess.IsOK(), c.input)
+		t.Run(c.input, func(t *testing.T) {
+			var exposed []ExposedIdentAssert
+			for _, e := range c.exposed {
+				exposed = append(exposed, ExposedIdent(e[0], e[1:]...))
 			}
-		}()
+
+			defer assertEOF(t, c.input, c.eof)
+			p := stringParser(t, c.input)
+			defer p.sess.Emit()
+			imp := parseImport(p)
+			if c.ok {
+				Import(c.module, c.alias, exposed...)(t, imp)
+			}
+			require.Equal(t, c.ok, p.sess.IsOK())
+		})
 	}
 }
 
@@ -159,32 +125,18 @@ func TestParseInfixDecl(t *testing.T) {
 		{"infixl 4 ?", operator.Left, "?", 4, true, false},
 		{"infix 4 ?", operator.NonAssoc, "?", 4, true, false},
 		{"infixl 0 ?", operator.Left, "?", 0, true, false},
-		{"infixl 4 foo", operator.Left, "", 0, false, false},
-		{"infixl \"a\" ?", operator.Left, "", 0, false, false},
-		{"infixl ? 5", operator.Left, "", 0, false, false},
-		{"infixl ?", operator.Left, "", 0, false, true},
-		{"infixl -1 ?", operator.Left, "", 0, false, false},
-		{"infixl 10 ?", operator.Left, "", 0, false, false},
-		{"infixl 20 ?", operator.Left, "", 0, false, false},
+		{"infixl 4 foo", operator.Left, "_", 0, false, false},
+		{"infixl \"a\" ?", operator.Left, "_", 0, false, false},
+		{"infixl ? 5", operator.Left, "_", 0, false, false},
+		{"infixl ?", operator.Left, "_", 0, false, true},
+		{"infixl -1 ?", operator.Left, "_", 0, false, false},
+		{"infixl 10 ?", operator.Left, "_", 0, false, false},
+		{"infixl 20 ?", operator.Left, "_", 0, false, false},
 	}
 
-	require := require.New(t)
 	for _, c := range cases {
-		func() {
-			defer assertEOF(t, c.input, c.eof)
-
-			p := stringParser(t, c.input)
-			decl := parseInfixDecl(p).(*ast.InfixDecl)
-			if c.ok {
-				require.Equal(c.assoc, decl.Assoc, c.input)
-				require.Equal(c.op, decl.Op.Name, c.input)
-				p, err := strconv.Atoi(decl.Precedence.Value)
-				require.Nil(err, c.input)
-				require.Equal(c.priority, p, c.input)
-			} else {
-				require.False(p.sess.IsOK(), c.input)
-			}
-		}()
+		assert := InfixDecl(c.op, c.assoc, Literal(ast.Int, fmt.Sprint(c.priority)))
+		mustParseDecl(t, c.input, c.eof, c.ok, assert)
 	}
 }
 
@@ -492,12 +444,7 @@ func TestParseTypeAlias(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		func() {
-			defer assertEOF(t, "", false)
-
-			p := stringParser(t, c.input)
-			c.assert(t, parseTypeDecl(p))
-		}()
+		mustParseDecl(t, c.input, false, true, c.assert)
 	}
 }
 
@@ -577,19 +524,15 @@ func TestParseTypeUnion(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		func() {
-			defer assertEOF(t, "", false)
-
-			p := stringParser(t, c.input)
-			c.assert(t, parseTypeDecl(p))
-		}()
+		mustParseDecl(t, c.input, false, true, c.assert)
 	}
 }
 
 const (
 	inputLiteral    = `foo = 5`
 	inputLiteralAnn = `foo : Int
-foo = 5`
+foo = 5
+`
 	inputOperator    = `(::) a b = 5`
 	inputOperatorAnn = `(::) : Int -> Int -> Int
 (::) a b = 5`
@@ -625,12 +568,7 @@ func TestParseDefinition(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		func() {
-			defer assertEOF(t, "", false)
-
-			p := stringParser(t, c.input)
-			c.assert(t, parseDefinition(p))
-		}()
+		mustParseDecl(t, c.input, false, true, c.assert)
 	}
 }
 
@@ -675,12 +613,7 @@ func TestParseDestructuringAssignment(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		t.Run(c.input, func(t *testing.T) {
-			defer assertEOF(t, "", false)
-
-			p := stringParser(t, c.input)
-			c.assert(t, parseDestructuringAssignment(p))
-		})
+		mustParseDecl(t, c.input, false, true, c.assert)
 	}
 }
 
@@ -764,6 +697,8 @@ func TestParsePattern(t *testing.T) {
 			defer assertEOF(t, "", false)
 
 			p := stringParser(t, c.input)
+			defer p.sess.Emit()
+			require.True(t, p.sess.IsOK())
 			c.assert(st, parsePattern(p, true))
 		})
 	}
@@ -804,6 +739,8 @@ func TestParseType(t *testing.T) {
 			// the space here is because a type can not be at the start of a
 			// line
 			p := stringParser(t, " "+c.input)
+			defer p.sess.Emit()
+			require.True(t, p.sess.IsOK())
 			typ := parseType(p)
 			if c.assert == nil {
 				require.Nil(t, typ, "expected type to be nil")
@@ -1023,7 +960,21 @@ func mustParseExpr(t *testing.T, input string, assert ExprAssert) {
 	defer assertEOF(t, input, false)
 	p := stringParser(t, input)
 	defer p.sess.Emit()
+	require.True(t, p.sess.IsOK())
 	assert(t, parseExpr(p))
+}
+
+func mustParseDecl(t *testing.T, input string, eof, ok bool, assert DeclAssert) {
+	t.Run(input, func(t *testing.T) {
+		defer assertEOF(t, input, eof)
+		p := stringParser(t, input)
+		defer p.sess.Emit()
+		decl := parseDecl(p)
+		require.Equal(t, ok, p.sess.IsOK())
+		if ok {
+			assert(t, decl)
+		}
+	})
 }
 
 func TestParseExpr(t *testing.T) {
@@ -1281,12 +1232,7 @@ func TestParseExpr(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.input, func(st *testing.T) {
-			c.input += "\n"
-			defer assertEOF(t, "", false)
-
-			p := stringParser(t, c.input)
-			expr := parseExpr(p)
-			c.assert(st, expr)
+			mustParseExpr(t, c.input, c.assert)
 		})
 	}
 }

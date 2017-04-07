@@ -58,11 +58,16 @@ func Module(module string, exposed ...ExposedIdentAssert) DeclAssert {
 	}
 }
 
-func Import(module string, exposed ...ExposedIdentAssert) ImportAssert {
+func Import(module string, alias ExprAssert, exposed ...ExposedIdentAssert) ImportAssert {
 	return func(t *testing.T, decl ast.Decl) {
 		d, ok := decl.(*ast.ImportDecl)
 		require.True(t, ok, "expecting decl to be ImportDecl, is %T", decl)
 		require.Equal(t, module, d.ModuleName())
+		if alias == nil {
+			require.Nil(t, d.Alias)
+		} else {
+			alias(t, d.Alias)
+		}
 
 		if len(exposed) == 0 {
 			require.Nil(t, d.Exposing, "expected no exposed idents")

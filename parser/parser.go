@@ -158,7 +158,7 @@ func (p *parser) currentPos() (indent, line int) {
 }
 
 func (p *parser) next() {
-	if p.tok != nil {
+	if p.tok != nil && !p.is(token.EOF) {
 		if p.expectIndented && p.indentLine != p.currentLine {
 			if p.tok.Column == 1 {
 				p.errorMessage(p.tok.Position, "I encountered what looks like a new declaration, but the previous one has not been finished yet.")
