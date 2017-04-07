@@ -38,7 +38,6 @@ type regionDiagnostic struct {
 type msgDiagnostic struct {
 	severity Severity
 	msg      Msg
-	pos      *token.Position
 }
 
 // Msg is a human-readable message of a diagnostic.
@@ -52,26 +51,27 @@ func NewRegionDiagnostic(severity Severity, msg Msg, start, pos *token.Position,
 	return &regionDiagnostic{severity, msg, start, pos, region}
 }
 
+func (d *regionDiagnostic) Severity() Severity { return d.severity }
+func (d *regionDiagnostic) Msg() string        { return d.msg.String() }
+func (d *regionDiagnostic) Line() int64        { return int64(d.pos.Line) }
+func (d *regionDiagnostic) StartLine() int64   { return int64(d.startPos.Line) }
+func (d *regionDiagnostic) Column() int64      { return int64(d.pos.Column) }
+func (d *regionDiagnostic) HasRegion() bool    { return true }
+func (d *regionDiagnostic) Lines() []string    { return d.lines }
+
 // NewMsgDiagnostic creates a new diagnostic that is not for a specific region
 // of the source code.
-func NewMsgDiagnostic(severity Severity, msg Msg, pos *token.Position) Diagnostic {
-	return &msgDiagnostic{severity, msg, pos}
+func NewMsgDiagnostic(severity Severity, msg Msg) Diagnostic {
+	return &msgDiagnostic{severity, msg}
 }
 
-func (d *regionDiagnostic) Severity() Severity { return d.severity }
-func (d *msgDiagnostic) Severity() Severity    { return d.severity }
-func (d *regionDiagnostic) Msg() string        { return d.msg.String() }
-func (d *msgDiagnostic) Msg() string           { return d.msg.String() }
-func (d *regionDiagnostic) Line() int64        { return int64(d.pos.Line) }
-func (d *msgDiagnostic) Line() int64           { return int64(d.pos.Line) }
-func (d *regionDiagnostic) StartLine() int64   { return int64(d.startPos.Line) }
-func (d *msgDiagnostic) StartLine() int64      { return int64(d.pos.Line) }
-func (d *regionDiagnostic) Column() int64      { return int64(d.pos.Column) }
-func (d *msgDiagnostic) Column() int64         { return int64(d.pos.Column) }
-func (d *regionDiagnostic) HasRegion() bool    { return true }
-func (d *msgDiagnostic) HasRegion() bool       { return false }
-func (d *regionDiagnostic) Lines() []string    { return d.lines }
-func (d *msgDiagnostic) Lines() []string       { return nil }
+func (d *msgDiagnostic) Severity() Severity { return d.severity }
+func (d *msgDiagnostic) Msg() string        { return d.msg.String() }
+func (d *msgDiagnostic) Line() int64        { return 0 }
+func (d *msgDiagnostic) StartLine() int64   { return 0 }
+func (d *msgDiagnostic) Column() int64      { return 0 }
+func (d *msgDiagnostic) HasRegion() bool    { return false }
+func (d *msgDiagnostic) Lines() []string    { return nil }
 
 // UnexpectedEOF returns a diagnostic message saying that EOF was not expected,
 // but one of the given token types.

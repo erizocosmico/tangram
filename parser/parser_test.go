@@ -149,23 +149,23 @@ func TestParseImport(t *testing.T) {
 func TestParseInfixDecl(t *testing.T) {
 	cases := []struct {
 		input    string
-		assoc    ast.Associativity
+		assoc    operator.Associativity
 		op       string
 		priority int
 		ok       bool
 		eof      bool
 	}{
-		{"infixr 4 ?", ast.RightAssoc, "?", 4, true, false},
-		{"infixl 4 ?", ast.LeftAssoc, "?", 4, true, false},
-		{"infix 4 ?", ast.NonAssoc, "?", 4, true, false},
-		{"infixl 0 ?", ast.LeftAssoc, "?", 0, true, false},
-		{"infixl 4 foo", ast.LeftAssoc, "", 0, false, false},
-		{"infixl \"a\" ?", ast.LeftAssoc, "", 0, false, false},
-		{"infixl ? 5", ast.LeftAssoc, "", 0, false, false},
-		{"infixl ?", ast.LeftAssoc, "", 0, false, true},
-		{"infixl -1 ?", ast.LeftAssoc, "", 0, false, false},
-		{"infixl 10 ?", ast.LeftAssoc, "", 0, false, false},
-		{"infixl 20 ?", ast.LeftAssoc, "", 0, false, false},
+		{"infixr 4 ?", operator.Right, "?", 4, true, false},
+		{"infixl 4 ?", operator.Left, "?", 4, true, false},
+		{"infix 4 ?", operator.NonAssoc, "?", 4, true, false},
+		{"infixl 0 ?", operator.Left, "?", 0, true, false},
+		{"infixl 4 foo", operator.Left, "", 0, false, false},
+		{"infixl \"a\" ?", operator.Left, "", 0, false, false},
+		{"infixl ? 5", operator.Left, "", 0, false, false},
+		{"infixl ?", operator.Left, "", 0, false, true},
+		{"infixl -1 ?", operator.Left, "", 0, false, false},
+		{"infixl 10 ?", operator.Left, "", 0, false, false},
+		{"infixl 20 ?", operator.Left, "", 0, false, false},
 	}
 
 	require := require.New(t)

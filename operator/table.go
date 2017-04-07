@@ -127,10 +127,10 @@ type OpInfo struct {
 type Associativity byte
 
 const (
+	// NonAssoc is a non associative operator.
+	NonAssoc Associativity = iota
 	// Left associativity.
-	Left Associativity = iota
+	Left
 	// Right associativity.
 	Right
-	// NonAssoc is a non associative operator.
-	NonAssoc
 )

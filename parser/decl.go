@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/erizocosmico/elmo/ast"
+	"github.com/erizocosmico/elmo/operator"
 	"github.com/erizocosmico/elmo/token"
 )
 
@@ -225,11 +226,11 @@ func parseDestructuringAssignment(p *parser) *ast.DestructuringAssignment {
 }
 
 func parseInfixDecl(p *parser) ast.Decl {
-	var assoc ast.Associativity
+	var assoc operator.Associativity
 	if p.is(token.Infixl) {
-		assoc = ast.LeftAssoc
+		assoc = operator.Left
 	} else if p.is(token.Infixr) {
-		assoc = ast.RightAssoc
+		assoc = operator.Right
 	}
 
 	stepOut := p.indentedBlock()

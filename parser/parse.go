@@ -2,8 +2,11 @@ package parser
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"io/ioutil"
+	"path/filepath"
+	"strconv"
 
 	"github.com/erizocosmico/elmo/ast"
 	"github.com/erizocosmico/elmo/diagnostic"
@@ -56,10 +59,22 @@ func NewSession(
 	return &Session{d, cm, ops}
 }
 
+// ParseResult is the result after a full parse, which is a set of parsed files
+// and the order in which they need to be resolved based on their imports.
+type ParseResult struct {
+	// Resolution contains a set of all the modules in `Modules` ordered from
+	// first module that needs to be resolved to the last.
+	Resolution []string
+	// Modules contains a mapping between module names and ast files. All the
+	// modules will be in `Resolution` and if a module is not in here, it won't
+	// be in `Resolution`.
+	Modules map[string]*ast.File
+}
+
 // Parse will parse the file at the given path and all its imported modules
 // with the given mode of parsing.
-func Parse(path string, mode ParseMode) (f *ast.File, err error) {
-	pkg, err := pkg.Load(path)
+func Parse(path string, mode ParseMode) (result *ParseResult, err error) {
+	pkg, err := pkg.Load(filepath.Dir(path))
 	if err != nil {
 		return nil, err
 	}
@@ -84,15 +99,6 @@ func Parse(path string, mode ParseMode) (f *ast.File, err error) {
 	sess := NewSession(diagnostic.NewDiagnoser(cm, emitter), cm, optable)
 
 	p := newParser(sess)
-	if err := cm.Add(path); err != nil {
-		return nil, err
-	}
-
-	source := cm.Source(path)
-	s := scanner.New(source.Path, source.Src)
-
-	s.Run()
-	p.init(path, s, mode)
 	defer catchBailout()
 	if !mode.Is(StderrDiagnostics) {
 		defer func() {
@@ -101,9 +107,124 @@ func Parse(path string, mode ParseMode) (f *ast.File, err error) {
 	} else {
 		defer sess.Emit()
 	}
-	// TODO: follow imports
-	f = parseFile(p)
+
+	fp := newFullParser(p, pkg, optable, cm)
+	result = fp.parse(path)
 	return
+}
+
+type fullParser struct {
+	p       *parser
+	pkg     *pkg.Package
+	optable *operator.Table
+	cm      *source.CodeMap
+	g       *pkg.Graph
+}
+
+func newFullParser(p *parser, pkg *pkg.Package, optable *operator.Table, cm *source.CodeMap) *fullParser {
+	return &fullParser{
+		p,
+		pkg,
+		optable,
+		cm,
+		nil,
+	}
+}
+
+func (p *fullParser) parse(path string) *ParseResult {
+	// do a first parse to gather all the imports and operator fixities
+	p.firstPass(path, make(map[string]struct{}))
+
+	modules, err := p.g.Resolve()
+	switch err := err.(type) {
+	case *pkg.CircularDependencyError:
+		p.error(
+			path,
+			fmt.Sprintf("I found a circular dependency in your code between these modules:\n- %s\n- %s", err.Modules[0], err.Modules[1]),
+		)
+	case nil:
+	default:
+		p.error(
+			path,
+			fmt.Sprintf("Oops, an unexpected error happened: %s", err.Error()),
+		)
+	}
+
+	r := &ParseResult{modules, make(map[string]*ast.File)}
+	for _, m := range modules {
+		if file := p.completeParse(m); file != nil {
+			r.Modules[m] = file
+		}
+	}
+
+	return r
+}
+
+func (p *fullParser) firstPass(path string, visited map[string]struct{}) {
+	if err := p.cm.Add(path); err != nil {
+		p.error(path, "Oops, unexpected error reading file: %s", err)
+		panic(bailout{})
+	}
+	source := p.cm.Source(path)
+	scanner := source.Scanner()
+
+	p.p.init(source.Path, scanner, SkipDefinitions)
+	file := parseFile(p.p)
+
+	mod := file.Module.ModuleName()
+	// TODO: check module name corresponds to the path
+	visited[mod] = struct{}{}
+	if p.g == nil {
+		p.g = pkg.NewGraph(mod)
+	}
+
+	if p.p.mode.Is(JustModule) {
+		return
+	}
+
+	for _, imp := range file.Imports {
+		importMod := imp.ModuleName()
+		if _, ok := visited[importMod]; ok {
+			continue
+		}
+
+		p.g.Add(importMod, mod)
+		importPath, err := p.pkg.FindModule(importMod)
+		if err != nil {
+			p.error(
+				path,
+				fmt.Sprintf("I could not find module %q in any of the package source directories or any of its dependencies. Maybe you're missing a dependency?", path),
+			)
+		}
+		p.firstPass(importPath, visited)
+	}
+
+	for _, d := range file.Decls {
+		if fixity, ok := d.(*ast.InfixDecl); ok {
+			n, _ := strconv.Atoi(fixity.Precedence.Value)
+			p.optable.Add(fixity.Op.Name, mod, fixity.Assoc, uint(n))
+		}
+	}
+}
+
+func (p *fullParser) completeParse(module string) *ast.File {
+	path, err := p.pkg.FindModule(module)
+	if err != nil {
+		// TODO: fix this, but should be unreachable
+		panic(err)
+	}
+
+	source := p.cm.Source(path)
+	p.p.init(path, source.Scanner(), FullParse)
+	return parseFile(p.p)
+}
+
+func (p *fullParser) error(path, msg string, args ...interface{}) {
+	msg = fmt.Sprintf(msg, args...)
+	p.p.sess.Diagnose(
+		path,
+		diagnostic.NewMsgDiagnostic(diagnostic.Error, bytes.NewBuffer([]byte(msg))),
+	)
 }
 
 // ParseFrom parses the contents of the given reader and returns the

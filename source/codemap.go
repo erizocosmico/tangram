@@ -6,6 +6,7 @@ import (
 	"io"
 	"strings"
 
+	"github.com/erizocosmico/elmo/scanner"
 	"github.com/erizocosmico/elmo/token"
 )
 
@@ -65,6 +66,7 @@ type Source struct {
 	// Src is the source code of the file.
 	Src       io.ReadSeeker
 	lineIndex []lineInfo
+	scanner   *scanner.Scanner
 }
 
 type lineInfo struct {
@@ -77,7 +79,7 @@ func (li lineInfo) inLine(pos token.Pos) bool {
 }
 
 func NewSource(path string, src io.ReadSeeker) (*Source, error) {
-	s := &Source{path, src, nil}
+	s := &Source{path, src, nil, nil}
 	if err := s.makeLineIndex(); err != nil {
 		return nil, err
 	}
@@ -169,4 +171,15 @@ func (s *Source) Region(start, end token.Pos) ([]string, error) {
 	}
 
 	return strings.Split(buf.String(), "\n"), nil
+}
+
+// Scanner returns a scanner for this source with all the tokens parsed.
+func (s *Source) Scanner() *scanner.Scanner {
+	if s.scanner == nil {
+		s.scanner = scanner.New(s.Path, s.Src)
+		s.scanner.Run()
+	}
+
+	s.scanner.Reset()
+	return s.scanner
 }
