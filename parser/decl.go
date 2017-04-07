@@ -10,8 +10,9 @@ import (
 
 func parseModule(p *parser) *ast.ModuleDecl {
 	var decl = new(ast.ModuleDecl)
-	p.pushState(parsingDecl, 1)
-	p.startRegion()
+	prevRegion := p.startRegion()
+
+	stepOut := p.indentedBlock()
 	decl.Module = p.expect(token.Module)
 	decl.Name = parseModuleName(p)
 
@@ -27,8 +28,8 @@ func parseModule(p *parser) *ast.ModuleDecl {
 		decl.Exposing = exposedList
 	}
 
-	p.finishedDecl()
-	p.endRegion()
+	p.endRegion(prevRegion)
+	stepOut()
 	return decl
 }
 
@@ -42,8 +43,8 @@ func parseImports(p *parser) []*ast.ImportDecl {
 
 func parseImport(p *parser) *ast.ImportDecl {
 	var decl = new(ast.ImportDecl)
-	p.startRegion()
-	p.pushState(parsingDecl, 1)
+	prevRegion := p.startRegion()
+	stepOut := p.indentedBlock()
 	decl.Import = p.expect(token.Import)
 	decl.Module = parseModuleName(p)
 
@@ -64,8 +65,8 @@ func parseImport(p *parser) *ast.ImportDecl {
 		decl.Exposing = exposedList
 	}
 
-	p.finishedDecl()
-	p.endRegion()
+	p.endRegion(prevRegion)
+	stepOut()
 	return decl
 }
 
@@ -154,8 +155,7 @@ func parseConstructorExposedIdents(p *parser) (idents []*ast.ExposedIdent) {
 }
 
 func parseDecl(p *parser) ast.Decl {
-	p.pushState(parsingDecl, p.tok.Column)
-	p.startRegion()
+	prevRegion := p.startRegion()
 	var decl ast.Decl
 	switch p.tok.Type {
 	case token.TypeDef:
@@ -186,8 +186,7 @@ func parseDecl(p *parser) ast.Decl {
 		panic(bailout{})
 	}
 
-	p.finishedDecl()
-	p.endRegion()
+	p.endRegion(prevRegion)
 
 	if p.mode.Is(SkipDefinitions) {
 		p.skipUntilNextFixity()
@@ -206,6 +205,7 @@ I am looking for one of the following things:
 
 func parseDestructuringAssignment(p *parser) *ast.DestructuringAssignment {
 	a := new(ast.DestructuringAssignment)
+	indent, line := p.currentPos()
 	a.Pattern = parsePattern(p, true)
 	_, ok := a.Pattern.(ast.ArgPattern)
 	if !ok {
@@ -217,7 +217,9 @@ func parseDestructuringAssignment(p *parser) *ast.DestructuringAssignment {
 	}
 
 	a.Eq = p.expect(token.Assign)
+	stepOut := p.indentedBlockAt(indent, line)
 	a.Expr = parseExpr(p)
+	stepOut()
 
 	return a
 }
@@ -230,6 +232,7 @@ func parseInfixDecl(p *parser) ast.Decl {
 		assoc = ast.RightAssoc
 	}
 
+	stepOut := p.indentedBlock()
 	pos := p.expectOneOf(token.Infixl, token.Infixr, token.Infix)
 	if !p.is(token.Int) {
 		p.errorExpected(p.tok, token.Int)
@@ -242,6 +245,7 @@ func parseInfixDecl(p *parser) ast.Decl {
 	}
 
 	op := parseOp(p)
+	stepOut()
 	return &ast.InfixDecl{
 		InfixPos:   pos,
 		Assoc:      assoc,
@@ -251,6 +255,8 @@ func parseInfixDecl(p *parser) ast.Decl {
 }
 
 func parseTypeDecl(p *parser) ast.Decl {
+	stepOut := p.indentedBlock()
+	defer stepOut()
 	typePos := p.expect(token.TypeDef)
 	if p.is(token.Alias) {
 		return parseAliasType(p, typePos)
@@ -307,6 +313,7 @@ func parseConstructor(p *parser) *ast.Constructor {
 func parseDefinition(p *parser) ast.Decl {
 	decl := new(ast.Definition)
 
+	indent, line := p.currentPos()
 	var name *ast.Ident
 	if p.is(token.Identifier) {
 		name = parseLowerName(p)
@@ -319,8 +326,9 @@ func parseDefinition(p *parser) ast.Decl {
 	if p.is(token.Colon) {
 		decl.Annotation = &ast.TypeAnnotation{Name: name}
 		decl.Annotation.Colon = p.expect(token.Colon)
+		stepOut := p.indentedBlockAt(indent, line)
 		decl.Annotation.Type = p.expectType()
-		p.finishedDecl()
+		stepOut()
 
 		defName := parseIdentifierOrOp(p)
 		if defName.Name != name.Name {
@@ -341,6 +349,8 @@ func parseDefinition(p *parser) ast.Decl {
 
 	decl.Args = parseFuncArgs(p, token.Assign)
 	decl.Eq = p.expect(token.Assign)
+	stepOut := p.indentedBlockAt(indent, line)
 	decl.Body = parseExpr(p)
+	stepOut()
 	return decl
 }
