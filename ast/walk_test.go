@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/erizocosmico/elmo/operator"
 	"github.com/erizocosmico/elmo/token"
 
 	"github.com/stretchr/testify/require"
@@ -97,7 +98,7 @@ var testFile = &File{
 	Decls: []Decl{
 		// infixl 5 :>
 		mkInfixDecl(
-			LeftAssoc,
+			operator.Left,
 			mkIdent(":>"),
 			mkBasicLit(Int, "5"),
 		),
@@ -388,7 +389,7 @@ func mkBasicLit(kind BasicLitType, val string) *BasicLit {
 	return &BasicLit{Type: kind, Value: val, Position: new(token.Position)}
 }
 
-func mkInfixDecl(assoc Associativity, op *Ident, prec *BasicLit) *InfixDecl {
+func mkInfixDecl(assoc operator.Associativity, op *Ident, prec *BasicLit) *InfixDecl {
 	inc("*ast.InfixDecl")
 	return &InfixDecl{Assoc: assoc, Op: op, Precedence: prec}
 }

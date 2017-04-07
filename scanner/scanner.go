@@ -138,7 +138,7 @@ func (l *Scanner) accept(valid string) (bool, error) {
 		return false, err
 	}
 
-	if strings.IndexRune(valid, r) >= 0 {
+	if strings.ContainsRune(valid, r) {
 		return true, nil
 	}
 
@@ -261,11 +261,11 @@ func (l *Scanner) Next() *token.Token {
 
 // Peek returns the next token but does not advance the internal cursor.
 func (l *Scanner) Peek() *token.Token {
-	if len(l.tokens) <= l.idx+1 {
+	if len(l.tokens) <= l.idx {
 		return nil
 	}
 
-	return l.tokens[l.idx+1]
+	return l.tokens[l.idx]
 }
 
 // Backup goes back until a certain token.
@@ -707,7 +707,7 @@ func isAlphanumeric(r rune) bool {
 }
 
 func isSymbol(r rune) bool {
-	return r != backtick && (unicode.IsSymbol(r) || strings.IndexRune("+-/*=.$<>:&|^?%#@~!", r) >= 0)
+	return r != backtick && (unicode.IsSymbol(r) || strings.ContainsRune("+-/*=.$<>:&|^?%#@~!", r))
 }
 
 var keywords = map[string]token.Type{

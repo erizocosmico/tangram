@@ -37,11 +37,6 @@ func (l *FsLoader) AbsPath(path string) string {
 
 // Load retrieves the source code of the file at the given module path.
 func (l *FsLoader) Load(path string) (io.ReadSeeker, error) {
-	path, err := l.pkg.FindModule(path)
-	if err != nil {
-		return nil, err
-	}
-
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err

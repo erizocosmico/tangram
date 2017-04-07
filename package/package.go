@@ -183,6 +183,7 @@ type ExactDependencies map[string]Version
 
 // Load will load the manifest of the package from the given path until it
 // reaches the root of the filesystem.
+// It expects path to be a directory.
 func Load(path string) (*Package, error) {
 	pkg, err := loadPackage(path, true)
 	if err != nil {

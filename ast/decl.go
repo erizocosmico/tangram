@@ -1,6 +1,11 @@
 package ast
 
-import "github.com/erizocosmico/elmo/token"
+import (
+	"fmt"
+
+	"github.com/erizocosmico/elmo/operator"
+	"github.com/erizocosmico/elmo/token"
+)
 
 // Decl is a declaration node.
 type Decl interface {
@@ -63,6 +68,14 @@ func (d *ModuleDecl) End() token.Pos {
 }
 func (d *ModuleDecl) isDecl() {}
 
+// ModuleName returns the name of the module.
+func (d *ModuleDecl) ModuleName() string {
+	if stringer, ok := d.Name.(fmt.Stringer); ok {
+		return stringer.String()
+	}
+	return "_"
+}
+
 // ImportDecl is a node representing an import declaration. It contains the
 // imported module as well as its alias, if any, and the exposed identifiers,
 // if any.
@@ -86,6 +99,14 @@ func (d *ImportDecl) End() token.Pos {
 }
 func (d *ImportDecl) isDecl() {}
 
+// ModuleName returns the name of the imported module.
+func (d *ImportDecl) ModuleName() string {
+	if stringer, ok := d.Module.(fmt.Stringer); ok {
+		return stringer.String()
+	}
+	return "_"
+}
+
 // InfixDecl is a node representing the declaration of an operator's fixity.
 // It contains the operator, the priority given and the associativity of the
 // operator.
@@ -93,24 +114,12 @@ type InfixDecl struct {
 	// InfixPos is the position of the "infix", "infixl" or "infixr" keyword.
 	InfixPos token.Pos
 	// Assoc is the associativity of the infix operator.
-	Assoc Associativity
+	Assoc operator.Associativity
 	// Op is the name of the operator.
 	Op *Ident
 	// Precence of the infix operator.
 	Precedence *BasicLit
 }
-
-// Associativity of the operator.
-type Associativity byte
-
-const (
-	// NonAssoc is a non associative operator.
-	NonAssoc Associativity = iota
-	// LeftAssoc is a left associative operator.
-	LeftAssoc
-	// RightAssoc is a right associative operator.
-	RightAssoc
-)
 
 func (InfixDecl) isDecl()          {}
 func (d InfixDecl) Pos() token.Pos { return d.InfixPos }

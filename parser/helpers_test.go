@@ -6,19 +6,104 @@ import (
 	"testing"
 
 	"github.com/erizocosmico/elmo/ast"
+	"github.com/erizocosmico/elmo/operator"
 
 	"github.com/stretchr/testify/require"
 )
 
 type (
-	TypeAssert        func(*testing.T, ast.Type)
-	ConstructorAssert func(*testing.T, *ast.Constructor)
-	DeclAssert        func(*testing.T, ast.Decl)
-	AnnotationAssert  func(*testing.T, string, *ast.TypeAnnotation)
-	ExprAssert        func(*testing.T, ast.Expr)
-	PatternAssert     func(*testing.T, ast.Pattern)
-	BranchAssert      func(*testing.T, *ast.CaseBranch)
+	FileAssert         func(*testing.T, *ast.File)
+	TypeAssert         func(*testing.T, ast.Type)
+	ConstructorAssert  func(*testing.T, *ast.Constructor)
+	DeclAssert         func(*testing.T, ast.Decl)
+	AnnotationAssert   func(*testing.T, string, *ast.TypeAnnotation)
+	ExprAssert         func(*testing.T, ast.Expr)
+	PatternAssert      func(*testing.T, ast.Pattern)
+	BranchAssert       func(*testing.T, *ast.CaseBranch)
+	ExposedIdentAssert func(*testing.T, *ast.ExposedIdent)
+	ImportAssert       DeclAssert
 )
+
+func File(module DeclAssert, imports []ImportAssert, decls ...DeclAssert) FileAssert {
+	return func(t *testing.T, f *ast.File) {
+		module(t, f.Module)
+		require.Len(t, f.Imports, len(imports), "wrong number of imports")
+		for i, imp := range f.Imports {
+			imports[i](t, imp)
+		}
+
+		require.Len(t, f.Decls, len(decls), "wrong number of decls")
+		for i, decl := range f.Decls {
+			decls[i](t, decl)
+		}
+	}
+}
+
+func Module(module string, exposed ...ExposedIdentAssert) DeclAssert {
+	return func(t *testing.T, decl ast.Decl) {
+		d, ok := decl.(*ast.ModuleDecl)
+		require.True(t, ok, "expecting decl to be ModuleDecl, is %T", decl)
+		require.Equal(t, module, d.ModuleName())
+
+		if len(exposed) == 0 {
+			require.Nil(t, d.Exposing, "expected no exposed idents")
+		} else {
+			require.NotNil(t, d.Exposing)
+			require.Len(t, d.Exposing.Idents, len(exposed), "wrong number of exposed idents")
+
+			for i, id := range d.Exposing.Idents {
+				exposed[i](t, id)
+			}
+		}
+	}
+}
+
+func Import(module string, exposed ...ExposedIdentAssert) ImportAssert {
+	return func(t *testing.T, decl ast.Decl) {
+		d, ok := decl.(*ast.ImportDecl)
+		require.True(t, ok, "expecting decl to be ImportDecl, is %T", decl)
+		require.Equal(t, module, d.ModuleName())
+
+		if len(exposed) == 0 {
+			require.Nil(t, d.Exposing, "expected no exposed idents")
+		} else {
+			require.NotNil(t, d.Exposing)
+			require.Len(t, d.Exposing.Idents, len(exposed), "wrong number of exposed idents")
+
+			for i, id := range d.Exposing.Idents {
+				exposed[i](t, id)
+			}
+		}
+	}
+}
+
+func ExposedIdent(name string, ctors ...string) ExposedIdentAssert {
+	return func(t *testing.T, ident *ast.ExposedIdent) {
+		require.Equal(t, name, ident.Ident.Name)
+		if len(ctors) == 0 {
+			require.Nil(t, ident.Exposing, "expected no exposed constructors")
+		} else {
+			require.NotNil(t, ident.Exposing)
+			require.Len(t, ident.Exposing.Idents, len(ctors), "wrong number of exposed constructors")
+
+			for i, id := range ident.Exposing.Idents {
+				require.Equal(t, ctors[i], id.Name)
+				require.Nil(t, id.Exposing, "no constructors are allowed in a constructor exposed")
+			}
+		}
+
+	}
+}
+
+func InfixDecl(op string, assoc operator.Associativity, prec ExprAssert) DeclAssert {
+	return func(t *testing.T, decl ast.Decl) {
+		d, ok := decl.(*ast.InfixDecl)
+		require.True(t, ok, "expecting decl to be InfixDecl, is %T", decl)
+		require.Equal(t, op, d.Op.Name)
+		require.Equal(t, assoc, d.Assoc, "wrong associativity")
+		prec(t, d.Precedence)
+	}
+}
 
 func Definition(
 	name string,
