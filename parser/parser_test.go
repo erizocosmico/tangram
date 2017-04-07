@@ -66,7 +66,6 @@ func TestParseModule(t *testing.T) {
 					}
 				}
 
-				require.Equal(0, len(p.errors), c.input)
 				n, ok := decl.Name.(fmt.Stringer)
 				require.True(ok, "expected module name to be stringer")
 				require.Equal(c.module, n.String(), c.input)
@@ -132,7 +131,6 @@ func TestParseImport(t *testing.T) {
 					}
 				}
 
-				require.Equal(0, len(p.errors), c.input)
 				mod, ok := decl.Module.(fmt.Stringer)
 				require.True(ok, "expected module name to be stringer")
 				require.Equal(c.module, mod.String(), c.input)
@@ -879,6 +877,148 @@ func TestParseCaseExpr(t *testing.T) {
 	mustParseExpr(t, input, expected)
 }
 
+func TestParseNestedCase(t *testing.T) {
+	input := `case foo of
+	Foo a -> 
+		case bar of
+			SubFoo a ->
+				1
+			SubBar ->
+				2
+
+	Bar b -> 
+		fn b
+	`
+
+	expected := CaseExpr(
+		Identifier("foo"),
+		CaseBranch(
+			CtorPattern("Foo", VarPattern("a")),
+			CaseExpr(
+				Identifier("bar"),
+				CaseBranch(
+					CtorPattern("SubFoo", VarPattern("a")),
+					Literal(ast.Int, "1"),
+				),
+				CaseBranch(
+					CtorPattern("SubBar"),
+					Literal(ast.Int, "2"),
+				),
+			),
+		),
+		CaseBranch(
+			CtorPattern("Bar", VarPattern("b")),
+			FuncApp(Identifier("fn"), Identifier("b")),
+		),
+	)
+
+	mustParseExpr(t, input, expected)
+}
+
+func TestParseDeepNestedExpr(t *testing.T) {
+	input := `let
+		foo = if a then
+				let 
+					b = c
+				in
+					b
+			else
+				fn a b c
+	in
+		bar foo`
+
+	expected := Let(
+		FuncApp(
+			Identifier("bar"),
+			Identifier("foo"),
+		),
+		Definition(
+			"foo",
+			nil,
+			nil,
+			IfExpr(
+				Identifier("a"),
+				Let(
+					Identifier("b"),
+					Definition("b", nil, nil, Identifier("c")),
+				),
+				FuncApp(
+					Identifier("fn"),
+					Identifier("a"),
+					Identifier("b"),
+					Identifier("c"),
+				),
+			),
+		),
+	)
+
+	mustParseExpr(t, input, expected)
+}
+
+func TestParseLet(t *testing.T) {
+	input := `let
+		foo = 
+			5
+
+		bar a b = 
+			6
+
+		( a, b ) = 
+			qux
+
+		{ x, y } = 
+			baz a b
+
+		mux : Int
+		mux = 
+			7
+
+		_ = 
+			ignored
+	in
+		5`
+
+	expected := Let(
+		Literal(ast.Int, "5"),
+		Definition("foo", nil, nil, Literal(ast.Int, "5")),
+		Definition("bar", nil,
+			Patterns(
+				VarPattern("a"),
+				VarPattern("b"),
+			),
+			Literal(ast.Int, "6"),
+		),
+		Destructuring(
+			TuplePattern(
+				VarPattern("a"),
+				VarPattern("b"),
+			),
+			Identifier("qux"),
+		),
+		Destructuring(
+			RecordPattern(
+				VarPattern("x"),
+				VarPattern("y"),
+			),
+			FuncApp(
+				Identifier("baz"),
+				Identifier("a"),
+				Identifier("b"),
+			),
+		),
+		Definition("mux",
+			TypeAnnotation(BasicType("Int")),
+			nil,
+			Literal(ast.Int, "7"),
+		),
+		Destructuring(
+			AnythingPattern,
+			Identifier("ignored"),
+		),
+	)
+	mustParseExpr(t, input, expected)
+}
+
 func mustParseExpr(t *testing.T, input string, assert ExprAssert) {
 	defer assertEOF(t, input, false)
 	p := stringParser(t, input)
@@ -983,61 +1123,6 @@ func TestParseExpr(t *testing.T) {
 				Lambda(
 					Patterns(VarPattern("k")),
 					Literal(ast.Int, "5"),
-				),
-			),
-		},
-		{
-			`let
-				foo = 5
-
-				bar a b = 6
-
-				( a, b ) = qux
-
-				{ x, y } = baz a b
-
-				mux : Int
-				mux = 7
-
-				_ = ignored
-			in
-				5`,
-			Let(
-				Literal(ast.Int, "5"),
-				Definition("foo", nil, nil, Literal(ast.Int, "5")),
-				Definition("bar", nil,
-					Patterns(
-						VarPattern("a"),
-						VarPattern("b"),
-					),
-					Literal(ast.Int, "6"),
-				),
-				Destructuring(
-					TuplePattern(
-						VarPattern("a"),
-						VarPattern("b"),
-					),
-					Identifier("qux"),
-				),
-				Destructuring(
-					RecordPattern(
-						VarPattern("x"),
-						VarPattern("y"),
-					),
-					FuncApp(
-						Identifier("baz"),
-						Identifier("a"),
-						Identifier("b"),
-					),
-				),
-				Definition("mux",
-					TypeAnnotation(BasicType("Int")),
-					nil,
-					Literal(ast.Int, "7"),
-				),
-				Destructuring(
-					AnythingPattern,
-					Identifier("ignored"),
 				),
 			),
 		},
@@ -1184,6 +1269,14 @@ func TestParseExpr(t *testing.T) {
 				),
 			),
 		},
+		{
+			`if a then b else c`,
+			IfExpr(
+				Identifier("a"),
+				Identifier("b"),
+				Identifier("c"),
+			),
+		},
 	}
 
 	for _, c := range cases {
@@ -1269,17 +1362,11 @@ func stringParser(t *testing.T, str string) *parser {
 	require.NoError(t, cm.Add("test"))
 	d := diagnostic.NewDiagnoser(cm, diagnostic.Stderr(true, true))
 
-	opTable := operator.NewTable()
-	opTable.Add("<|", "", operator.Right, 0)
-	opTable.Add("+", "", operator.Left, 6)
-	opTable.Add("-", "", operator.Left, 6)
-	opTable.Add("*", "", operator.Left, 7)
-	opTable.Add("==", "", operator.NonAssoc, 4)
+	opTable := operator.BuiltinTable()
 	opTable.Add(":>", "", operator.NonAssoc, 5)
 
 	sess := NewSession(d, cm, opTable)
 	var p = newParser(sess)
 	p.init("test", scanner, FullParse)
-	p.pushState(skipping, 1)
 	return p
 }

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
+	"unicode"
 )
 
 // Emitter emits diagnostics to the user.
@@ -114,10 +116,14 @@ func (e *writerEmitter) printRegion(d Diagnostic) error {
 	buf.WriteRune('\n')
 	for i, l := range lines {
 		buf.WriteString(fmt.Sprintf(lineFormat, startLine+i))
-		buf.WriteString(l)
+		indent := lineIndent(l)
+		spacesIndent := toSpaces(indent)
+		indentDiff := int64(len(spacesIndent) - len(indent))
+		buf.WriteString(spacesIndent)
+		buf.WriteString(strings.TrimSpace(l))
 		if startLine+i == line {
 			buf.WriteRune('\n')
-			for j := int64(0); j < d.Column()+3-1+lastLineDigits; j++ {
+			for j := int64(0); j < d.Column()+3-1+lastLineDigits+indentDiff; j++ {
 				if e.colors {
 					buf.WriteString(d.Severity().Color()("-"))
 				} else {
@@ -135,6 +141,27 @@ func (e *writerEmitter) printRegion(d Diagnostic) error {
 	buf.WriteRune('\n')
 
 	return e.print(buf.String())
+}
+
+func lineIndent(line string) string {
+	for i, r := range line {
+		if !unicode.IsSpace(r) {
+			return line[0:i]
+		}
+	}
+	return ""
+}
+
+func toSpaces(indent string) string {
+	var spaces []rune
+	for _, r := range indent {
+		if r == '\t' {
+			spaces = append(spaces, ' ', ' ')
+		} else {
+			spaces = append(spaces, r)
+		}
+	}
+	return string(spaces)
 }
 
 // Stderr creates a new emitter that will report to stderr all diagnostics.

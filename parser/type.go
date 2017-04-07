@@ -6,7 +6,7 @@ import (
 )
 
 func parseTypeList(p *parser) (types []ast.Type) {
-	for (p.is(token.LeftParen) || p.is(token.Identifier) || p.is(token.LeftBrace)) && !p.atLineStart() {
+	for (p.is(token.LeftParen) || p.is(token.Identifier) || p.is(token.LeftBrace)) && p.isCorrectlyIndented() {
 		var typ ast.Type
 		switch p.tok.Type {
 		case token.LeftParen, token.LeftBrace:
@@ -56,7 +56,7 @@ func parseType(p *parser) ast.Type {
 // parseAtomType parses a type that can make sense on their own, that is,
 // a tuple, a record or a basic type.
 func parseAtomType(p *parser) ast.Type {
-	if p.atLineStart() {
+	if !p.isCorrectlyIndented() {
 		return nil
 	}
 

@@ -13,29 +13,50 @@ import (
 )
 
 type parser struct {
-	sess       *Session
-	scanner    *scanner.Scanner
-	fileName   string
-	unresolved []*ast.Ident
-	mode       ParseMode
+	sess     *Session
+	scanner  *scanner.Scanner
+	fileName string
+	mode     ParseMode
 
-	tok     *token.Token
-	errors  []error
-	state   []state
-	regions []*token.Position
+	// tok is the current token.
+	tok *token.Token
+	// region is the current region start for error reporting.
+	region *token.Position
+	// indent is the last indentation point.
+	indent int
+	// indentLine is the line in which the indentation was set.
+	indentLine int
+	// currentLine is the current line number.
+	currentLine int
+	// currentIndent is the indentation of the current line.
+	currentIndent int
+	// expectIndent is a flag that indicates that next tokens are expected to
+	// have an indentation greater than `indent`.
+	expectIndented bool
+	// silent ignores all errors if true. This is only used to
+	// avoid errors when there might be a backup parsing or when we're skipping
+	// tokens.
+	silent bool
 }
 
 func newParser(sess *Session) *parser {
 	return &parser{sess: sess}
 }
 
+// bailout is the type used to stop parsing. It's the only panic
+// that will be caught because it means we stopped parsing deliberately.
 type bailout struct{}
 
 func (p *parser) init(fileName string, s *scanner.Scanner, mode ParseMode) {
 	p.scanner = s
-	p.state = []state{{parsingFile, 1, 1}}
 	p.fileName = fileName
 	p.mode = mode
+	p.indent = 1
+	p.indentLine = 1
+	p.currentLine = -1
+	p.currentIndent = 1
+	p.silent = false
+	p.expectIndented = false
 
 	p.next()
 }
@@ -61,11 +82,11 @@ func parseFile(p *parser) *ast.File {
 }
 
 func (p *parser) skipUntilNextFixity() {
-	p.pushState(skipping, 0)
+	p.silent = true
 	for {
 		switch p.tok.Type {
 		case token.Infix, token.Infixr, token.Infixl, token.EOF:
-			p.popState()
+			p.silent = false
 			return
 		}
 		p.next()
@@ -112,38 +133,50 @@ func parseOp(p *parser) *ast.Ident {
 	return &ast.Ident{NamePos: pos, Name: name}
 }
 
-func (p *parser) checkState(state state) {
-	switch state.mode {
-	case parsingDecl:
-		if p.atLineStart() && state.line != p.tok.Line {
-			p.errorMessage(p.tok.Position, "I encountered what looks like a new declaration, but the previous one has not been finished yet.")
-		}
-	case parsingFile:
-		if !p.atLineStart() {
-			p.errorMessage(p.tok.Position, "I expected a new declaration. All declarations need to start at the beginning of their line.")
-		}
-	case parsingLet:
-		if p.atLineStart() && !p.is(token.Let) && !p.is(token.In) {
-			p.errorExpectedOneOf(p.tok, token.In)
-		}
-	case parsingCaseBranch:
-		if p.tok.Column == 1 {
-			p.errorMessage(p.tok.Position, "I encountered what looks like a new declaration, but the previous one has not been finished yet.")
-		} else if p.tok.Column < state.lineStart {
-			p.errorMessage(p.tok.Position, "I was expecting a new case branch, but the indentation does not match the one in the previous branch.")
-		}
+func (p *parser) indentedBlock() func() {
+	return p.indentedBlockAt(p.currentIndent, p.currentLine)
+}
+
+func (p *parser) indentedBlockAt(indent, line int) func() {
+	prevIndent := p.indent
+	prevLine := p.indentLine
+	expectingIndented := p.expectIndented
+
+	p.indent = indent
+	p.indentLine = line
+	p.expectIndented = true
+
+	return func() {
+		p.indent = prevIndent
+		p.indentLine = prevLine
+		p.expectIndented = expectingIndented
 	}
+}
+
+func (p *parser) currentPos() (indent, line int) {
+	return p.currentIndent, p.currentLine
 }
 
 func (p *parser) next() {
 	if p.tok != nil {
-		p.checkState(p.currentState())
+		if p.expectIndented && p.indentLine != p.currentLine {
+			if p.tok.Column == 1 {
+				p.errorMessage(p.tok.Position, "I encountered what looks like a new declaration, but the previous one has not been finished yet.")
+			} else if p.currentIndent <= p.indent {
+				p.errorMessage(p.tok.Position, "I was expecting whitespace.")
+			}
+		}
 	}
 
 	p.tok = p.scanner.Next()
 	if p.is(token.Comment) {
 		// ignore comments for now
 		p.next()
+	}
+
+	if p.tok.Line != p.currentLine {
+		p.currentIndent = p.tok.Column
+		p.currentLine = p.tok.Line
 	}
 }
 
@@ -158,17 +191,6 @@ func (p *parser) peek() *token.Token {
 		p.errorUnexpectedEOF()
 	}
 	return t
-}
-
-// finishedDecl marks as finished the parsing of the previous declaration. It
-// generates an error otherwise.
-func (p *parser) finishedDecl() {
-	if p.is(token.EOF) || p.currentState().mode == parsingDecl {
-		p.popState()
-		return
-	}
-
-	p.errorMessage(p.tok.Position, "I was expecting a new declaration or the end of file, but I got %s instead.", p.tok.Type)
 }
 
 func (p *parser) expect(typ token.Type) token.Pos {
@@ -219,14 +241,6 @@ func (p *parser) is(typ token.Type) bool {
 	return p.tok.Type == typ
 }
 
-func (p *parser) currentState() state {
-	return p.state[len(p.state)-1]
-}
-
-func (p *parser) atLineStart() bool {
-	return p.tok.Column <= p.currentState().lineStart
-}
-
 func (p *parser) opInfo(name string) *operator.OpInfo {
 	info := p.sess.Table.Lookup(name, "" /* TODO: path */)
 	if info != nil {
@@ -239,22 +253,34 @@ func (p *parser) opInfo(name string) *operator.OpInfo {
 	}
 }
 
-func (p *parser) startRegion() {
-	p.regions = append(p.regions, p.tok.Position)
+func (p *parser) checkAligned() bool {
+	return p.indent == p.currentIndent
 }
 
-func (p *parser) endRegion() {
-	p.regions = p.regions[:len(p.regions)-1]
+func (p *parser) isCorrectlyIndented() bool {
+	return (p.currentIndent > p.indent &&
+		p.currentLine > p.indentLine) ||
+		p.currentLine == p.indentLine
+}
+
+func (p *parser) startRegion() (prev *token.Position) {
+	prev = p.region
+	p.region = p.tok.Position
+	return prev
+}
+
+func (p *parser) endRegion(prev *token.Position) {
+	p.region = prev
 }
 
 func (p *parser) regionStart() *token.Position {
-	if len(p.regions) == 0 {
+	if p.region == nil {
 		return &token.Position{Offset: token.NoPos, Line: 1}
 	}
-	return p.regions[len(p.regions)-1]
+	return p.region
 }
 
-func (p *parser) region(start *token.Position) []string {
+func (p *parser) getRegion(start *token.Position) []string {
 	region, err := p.sess.
 		Source(p.fileName).
 		Region(
@@ -269,13 +295,17 @@ func (p *parser) region(start *token.Position) []string {
 }
 
 func (p *parser) regionError(pos *token.Position, msg diagnostic.Msg) {
+	if p.silent {
+		return
+	}
+
 	start := p.regionStart()
 	p.sess.Diagnose(p.fileName, diagnostic.NewRegionDiagnostic(
 		diagnostic.Error,
 		msg,
 		start,
 		pos,
-		p.region(start),
+		p.getRegion(start),
 	))
 }
 
@@ -314,52 +344,4 @@ func isLower(name string) bool {
 func isUpper(name string) bool {
 	r, _ := utf8.DecodeRuneInString(name)
 	return unicode.IsUpper(r)
-}
-
-type state struct {
-	mode      stateMode
-	lineStart int
-	line      int
-}
-
-type stateMode uint
-
-const (
-	parsingFile stateMode = iota
-	parsingDecl
-	parsingCase
-	parsingCaseBranch
-	parsingLet
-	skipping
-)
-
-func (m stateMode) String() string {
-	switch m {
-	case parsingFile:
-		return "parsingFile"
-	case parsingDecl:
-		return "parsingDecl"
-	case parsingCase:
-		return "parsingCase"
-	case parsingCaseBranch:
-		return "parsingCaseBranch"
-	case parsingLet:
-		return "parsingLet"
-	case skipping:
-		return "skipping"
-	default:
-		return "invalid"
-	}
-}
-
-func (p *parser) pushState(mode stateMode, lineStart int) {
-	p.state = append(p.state, state{mode, lineStart, p.tok.Line})
-}
-
-func (p *parser) popState() {
-	if len(p.state) <= 1 {
-		p.state = nil
-	} else {
-		p.state = p.state[:len(p.state)-1]
-	}
 }

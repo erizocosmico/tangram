@@ -258,16 +258,13 @@ func parseExprList(p *parser, first ast.Expr) []ast.Expr {
 func parseExpr(p *parser) ast.Expr {
 	switch p.tok.Type {
 	case token.If:
-		p.startRegion()
-		defer p.endRegion()
+		defer p.endRegion(p.startRegion())
 		return parseIf(p)
 	case token.Case:
-		p.startRegion()
-		defer p.endRegion()
+		defer p.endRegion(p.startRegion())
 		return parseCase(p)
 	case token.Let:
-		p.startRegion()
-		defer p.endRegion()
+		defer p.endRegion(p.startRegion())
 		return parseLet(p)
 	case token.EOF:
 		p.errorMessage(p.tok.Position, "Unexpected EOF")
@@ -289,7 +286,7 @@ func atExprFinalizer(p *parser) bool {
 		token.EOF:
 		return true
 	}
-	return p.atLineStart()
+	return !p.isCorrectlyIndented()
 }
 
 const errorMsgMultipleNonAssocOps = `Binary operators %s and %s are non associative and have the same precedence. Consider using parenthesis to disambiguate.`
@@ -367,12 +364,10 @@ func flattenApp(app *ast.FuncApp) *ast.FuncApp {
 }
 
 func parseLet(p *parser) *ast.LetExpr {
+	indent, line := p.currentPos()
 	e := &ast.LetExpr{Let: p.expect(token.Let)}
-	p.pushState(parsingLet, p.tok.Column)
-
-	lineStart := p.tok.Column
+	stepOut := p.indentedBlockAt(indent, line)
 	for p.is(token.Identifier) || p.is(token.LeftParen) || p.is(token.LeftBrace) {
-		p.pushState(parsingDecl, lineStart)
 		switch p.tok.Type {
 		case token.Identifier:
 			if p.tok.Value != "_" {
@@ -383,63 +378,87 @@ func parseLet(p *parser) *ast.LetExpr {
 		case token.LeftParen, token.LeftBrace:
 			e.Decls = append(e.Decls, parseDestructuringAssignment(p))
 		}
-		p.popState()
 	}
 
+	stepOut()
+	indent, line = p.currentPos()
 	e.In = p.expect(token.In)
+	stepOut = p.indentedBlockAt(indent, line)
 	e.Body = parseExpr(p)
-	p.popState()
+	stepOut()
 	return e
 }
 
 func parseIf(p *parser) *ast.IfExpr {
 	var expr = new(ast.IfExpr)
+
+	indent, line := p.currentPos()
 	expr.If = p.expect(token.If)
 	expr.Cond = parseExpr(p)
+
 	expr.Then = p.expect(token.Then)
+	stepOut := p.indentedBlockAt(indent, line)
 	expr.ThenExpr = parseExpr(p)
+	stepOut()
+
+	indent, line = p.currentPos()
 	expr.Else = p.expect(token.Else)
+	stepOut = p.indentedBlockAt(indent, line)
 	expr.ElseExpr = parseExpr(p)
+	stepOut()
+
 	return expr
 }
 
 func parseCase(p *parser) *ast.CaseExpr {
 	var expr = new(ast.CaseExpr)
-	lineStart := p.tok.Column
+
+	indent, line := p.currentPos()
 	expr.Case = p.expect(token.Case)
-	p.pushState(parsingCase, lineStart)
 	expr.Expr = parseExpr(p)
 	expr.Of = p.expect(token.Of)
 
-	lineStart = p.tok.Column
+	firstBranchPos := p.tok.Position
 	for !p.is(token.EOF) {
-		branch := parseCaseBranch(p, lineStart)
+		stepOut := p.indentedBlockAt(indent, line)
+		branch := parseCaseBranch(p, firstBranchPos.Column)
+		stepOut()
 		if branch == nil {
 			break
 		}
 		expr.Branches = append(expr.Branches, branch)
 	}
 
-	p.popState()
+	if len(expr.Branches) == 0 {
+		p.errorMessage(firstBranchPos, "I was expecting a pattern.")
+	}
+
 	return expr
 }
 
-func parseCaseBranch(p *parser, lineStart int) *ast.CaseBranch {
+func parseCaseBranch(p *parser, alignment int) *ast.CaseBranch {
 	checkPoint := p.tok
 
 	var branch = new(ast.CaseBranch)
-	p.pushState(parsingCaseBranch, lineStart)
+	if alignment != p.tok.Column {
+		return nil
+	}
+
+	indent, line := p.currentPos()
+	p.silent = true
 	branch.Pattern = parsePattern(p, true)
 	if !p.is(token.Arrow) {
 		// this is not a case branch, we need to backup
 		p.backup(checkPoint)
-		p.popState()
+		p.silent = false
 		return nil
 	}
+	p.silent = false
 
 	branch.Arrow = p.expect(token.Arrow)
+	stepOut := p.indentedBlockAt(indent, line)
 	branch.Expr = parseExpr(p)
-	p.popState()
+	stepOut()
 	return branch
 }
 
