@@ -42,7 +42,7 @@ func Walk(v Visitor, node Node) {
 	}
 
 	switch node := node.(type) {
-	case *File:
+	case *Module:
 		if node.Module != nil {
 			Walk(v, node.Module)
 		}
@@ -70,16 +70,20 @@ func Walk(v Visitor, node Node) {
 			Walk(v, node.Exposing)
 		}
 
-	case *ExposingList:
-		for _, ident := range node.Idents {
+	case *ClosedList:
+		for _, ident := range node.Exposed {
 			Walk(v, ident)
 		}
 
-	case *ExposedIdent:
+	case *OpenList:
+		// do nothing
+
+	case *ExposedVar:
 		Walk(v, node.Ident)
-		if node.Exposing != nil {
-			Walk(v, node.Exposing)
-		}
+
+	case *ExposedUnion:
+		Walk(v, node.Type)
+		Walk(v, node.Ctors)
 
 	case *InfixDecl:
 		Walk(v, node.Op)
@@ -130,11 +134,14 @@ func Walk(v Visitor, node Node) {
 		Walk(v, node.Type)
 
 	// Types
-	case *BasicType:
+	case *NamedType:
 		Walk(v, node.Name)
 		for _, a := range node.Args {
 			Walk(v, a)
 		}
+
+	case *VarType:
+		Walk(v, node.Ident)
 
 	case *FuncType:
 		for _, a := range node.Args {

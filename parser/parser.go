@@ -61,7 +61,7 @@ func (p *parser) init(fileName string, s *scanner.Scanner, mode ParseMode) {
 	p.next()
 }
 
-func parseFile(p *parser) *ast.File {
+func parseFile(p *parser) *ast.Module {
 	mod := parseModule(p)
 	imports := parseImports(p)
 	if p.mode.Is(SkipDefinitions) {
@@ -73,7 +73,7 @@ func parseFile(p *parser) *ast.File {
 		decls = append(decls, parseDecl(p))
 	}
 
-	return &ast.File{
+	return &ast.Module{
 		Name:    p.fileName,
 		Module:  mod,
 		Imports: imports,

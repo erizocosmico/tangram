@@ -18,15 +18,8 @@ func parseModule(p *parser) *ast.ModuleDecl {
 	decl.Name = parseModuleName(p)
 
 	if p.is(token.Exposing) {
-		exposedList := new(ast.ExposingList)
 		p.expect(token.Exposing)
-		exposedList.Lparen = p.expect(token.LeftParen)
-		exposedList.Idents = parseExposedIdents(p)
-		if len(exposedList.Idents) == 0 {
-			p.errorExpectedOneOf(p.tok, token.Range, token.Identifier)
-		}
-		exposedList.Rparen = p.expect(token.RightParen)
-		decl.Exposing = exposedList
+		decl.Exposing = parseExposedList(p, false)
 	}
 
 	p.endRegion(prevRegion)
@@ -55,15 +48,8 @@ func parseImport(p *parser) *ast.ImportDecl {
 	}
 
 	if p.is(token.Exposing) {
-		exposedList := new(ast.ExposingList)
 		p.expect(token.Exposing)
-		exposedList.Lparen = p.expect(token.LeftParen)
-		exposedList.Idents = parseExposedIdents(p)
-		if len(exposedList.Idents) == 0 {
-			p.errorExpectedOneOf(p.tok, token.Range, token.Identifier)
-		}
-		exposedList.Rparen = p.expect(token.RightParen)
-		decl.Exposing = exposedList
+		decl.Exposing = parseExposedList(p, false)
 	}
 
 	p.endRegion(prevRegion)
@@ -90,69 +76,61 @@ func parseModuleName(p *parser) ast.Expr {
 	return ast.NewSelectorExpr(path...)
 }
 
-func parseExposedIdents(p *parser) []*ast.ExposedIdent {
+func parseExposedList(p *parser, parsingUnion bool) ast.ExposedList {
+	lparenPos := p.expect(token.LeftParen)
 	if p.is(token.Range) {
 		p.expect(token.Range)
-		return []*ast.ExposedIdent{
-			ast.NewExposedIdent(
-				ast.NewIdent(token.Range.String(), p.tok.Position),
-			),
+		return &ast.OpenList{
+			Lparen: lparenPos,
+			Rparen: p.expect(token.RightParen),
 		}
 	}
 
-	if !p.is(token.LeftParen) && !p.is(token.Identifier) {
-		return nil
+	exposing := &ast.ClosedList{Lparen: lparenPos}
+	exposing.Exposed = parseExposedIdents(p, parsingUnion)
+
+	if len(exposing.Exposed) == 0 {
+		p.errorExpectedOneOf(p.tok, token.Range, token.Identifier)
 	}
 
-	exposed := []*ast.ExposedIdent{parseExposedIdent(p)}
+	exposing.Rparen = p.expect(token.RightParen)
+	return exposing
+}
+
+func parseExposedIdents(p *parser, parsingUnion bool) []ast.ExposedIdent {
+	exposed := []ast.ExposedIdent{parseExposedIdent(p, parsingUnion)}
 	for p.is(token.Comma) {
 		p.expect(token.Comma)
-		exposed = append(exposed, parseExposedIdent(p))
+		exposed = append(exposed, parseExposedIdent(p, parsingUnion))
 	}
 
 	return exposed
 }
 
-func parseExposedIdent(p *parser) *ast.ExposedIdent {
-	ident := ast.NewExposedIdent(parseIdentifierOrOp(p))
+func parseExposedIdent(p *parser, parsingUnion bool) ast.ExposedIdent {
+	var ident *ast.Ident
+	if !parsingUnion {
+		ident = parseIdentifierOrOp(p)
+	} else {
+		ident = parseUpperName(p)
+	}
 
 	if p.is(token.LeftParen) {
+		if parsingUnion {
+			p.errorMessage(p.tok.Position, "A constructor cannot expose anything.")
+		}
+
 		if !isUpper(ident.Name) {
-			p.errorMessage(ident.NamePos, "I was expecting an upper case name.")
-		}
-		var exposingList = new(ast.ExposingList)
-		exposingList.Lparen = p.expect(token.LeftParen)
-		exposingList.Idents = parseConstructorExposedIdents(p)
-		if len(exposingList.Idents) == 0 {
-			p.errorExpectedOneOf(p.tok, token.Range, token.Identifier)
-		}
-		exposingList.Rparen = p.expect(token.RightParen)
-		ident.Exposing = exposingList
-	}
-
-	return ident
-}
-
-func parseConstructorExposedIdents(p *parser) (idents []*ast.ExposedIdent) {
-	if p.is(token.Range) {
-		p.expect(token.Range)
-		idents = append(
-			idents,
-			ast.NewExposedIdent(
-				ast.NewIdent(token.Range.String(), p.tok.Position),
-			),
-		)
-		return
-	}
-
-	for {
-		idents = append(idents, ast.NewExposedIdent(parseUpperName(p)))
-		if p.is(token.RightParen) {
-			return
+			p.errorMessage(ident.NamePos, "%q is exposing constructors, but it is not a type.", ident.Name)
 		}
 
-		p.expect(token.Comma)
+		return &ast.ExposedUnion{
+			Type:  ident,
+			Ctors: parseExposedList(p, true),
+		}
 	}
+
+	return &ast.ExposedVar{ident}
 }
 
 func parseDecl(p *parser) ast.Decl {

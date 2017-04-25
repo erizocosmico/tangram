@@ -18,7 +18,7 @@ func TestParseModule(t *testing.T) {
 		input   string
 		ok, eof bool
 		module  string
-		exposed [][]string
+		exposed ExposedListAssert
 	}{
 		{"module Foo", true, false, "Foo", nil},
 		{"module foo", false, false, "", nil},
@@ -26,35 +26,51 @@ func TestParseModule(t *testing.T) {
 		{"module Foo.Bar", true, false, "Foo.Bar", nil},
 		{"module Foo.Bar.Baz", true, false, "Foo.Bar.Baz", nil},
 		{"module Foo exposing", false, true, "Foo", nil},
-		{"module Foo exposing ()", false, false, "Foo", nil},
-		{"module Foo exposing (..)", true, false, "Foo", [][]string{{".."}}},
-		{"module Foo exposing (foo)", true, false, "Foo", [][]string{{"foo"}}},
+		{"module Foo exposing ()", false, true, "Foo", nil},
+		{"module Foo exposing (..)", true, false, "Foo", OpenList},
+		{"module Foo exposing (foo)", true, false, "Foo", ClosedList(
+			ExposedVar("foo"),
+		)},
 		{"module Foo exposing (foo(..))", false, false, "", nil},
 		{"module Foo exposing (Foo(foo, Bar))", false, false, "", nil},
-		{"module Foo exposing (foo, bar)", true, false, "Foo", [][]string{{"foo"}, {"bar"}}},
-		{"module Foo exposing (foo, bar, baz)", true, false, "Foo", [][]string{{"foo"}, {"bar"}, {"baz"}}},
-		{"module Foo exposing (foo, (:>), baz)", true, false, "Foo", [][]string{{"foo"}, {":>"}, {"baz"}}},
-		{"module Foo exposing ((:>), (:>), (:>))", true, false, "Foo", [][]string{{":>"}, {":>"}, {":>"}}},
-		{"module Foo exposing (foo, Bar(..), Baz(A, B, C))", true, false, "Foo", [][]string{
-			{"foo"},
-			{"Bar", ".."},
-			{"Baz", "A", "B", "C"},
-		}},
+		{"module Foo exposing (foo, bar)", true, false, "Foo", ClosedList(
+			ExposedVar("foo"),
+			ExposedVar("bar"),
+		)},
+		{"module Foo exposing (foo, bar, baz)", true, false, "Foo", ClosedList(
+			ExposedVar("foo"),
+			ExposedVar("bar"),
+			ExposedVar("baz"),
+		)},
+		{"module Foo exposing (foo, (:>), baz)", true, false, "Foo", ClosedList(
+			ExposedVar("foo"),
+			ExposedVar(":>"),
+			ExposedVar("baz"),
+		)},
+		{"module Foo exposing ((:>), (:>), (:>))", true, false, "Foo", ClosedList(
+			ExposedVar(":>"),
+			ExposedVar(":>"),
+			ExposedVar(":>"),
+		)},
+		{"module Foo exposing (foo, Bar(..), Baz(A, B, C))", true, false, "Foo", ClosedList(
+			ExposedVar("foo"),
+			ExposedUnion("Bar", OpenList),
+			ExposedUnion("Baz", ClosedList(
+				ExposedVar("A"),
+				ExposedVar("B"),
+				ExposedVar("C"),
+			)),
+		)},
 	}
 
 	for _, c := range cases {
 		t.Run(c.input, func(t *testing.T) {
-			var exposed []ExposedIdentAssert
-			for _, e := range c.exposed {
-				exposed = append(exposed, ExposedIdent(e[0], e[1:]...))
-			}
-
 			defer assertEOF(t, c.input, c.eof)
 			p := stringParser(t, c.input)
 			defer p.sess.Emit()
 			mod := parseModule(p)
 			if c.ok {
-				Module(c.module, exposed...)(t, mod)
+				Module(c.module, c.exposed)(t, mod)
 			}
 			require.Equal(t, c.ok, p.sess.IsOK())
 		})
@@ -67,45 +83,68 @@ func TestParseImport(t *testing.T) {
 		ok, eof bool
 		module  string
 		alias   ExprAssert
-		exposed [][]string
+		exposed ExposedListAssert
 	}{
 		{"import Foo", true, false, "Foo", nil, nil},
 		{"import foo", false, false, "", nil, nil},
 		{"bar Foo", false, false, "", nil, nil},
 		{"import Foo.Bar", true, false, "Foo.Bar", nil, nil},
 		{"import Foo.Bar.Baz", true, false, "Foo.Bar.Baz", nil, nil},
-		{"import Foo.Bar.Baz as Foo", true, false, "Foo.Bar.Baz", Identifier("Foo"), nil},
+		{
+			"import Foo.Bar.Baz as Foo",
+			true,
+			false,
+			"Foo.Bar.Baz",
+			Identifier("Foo"),
+			nil,
+		},
 		{"import Foo exposing", false, true, "Foo", nil, nil},
-		{"import Foo exposing ()", false, false, "Foo", nil, nil},
-		{"import Foo exposing (..)", true, false, "Foo", nil, [][]string{{".."}}},
-		{"import Foo as Bar exposing (..)", true, false, "Foo", Identifier("Bar"), [][]string{{".."}}},
+		{"import Foo exposing ()", false, true, "Foo", nil, nil},
+		{"import Foo exposing (..)", true, false, "Foo", nil, OpenList},
+		{"import Foo as Bar exposing (..)", true, false, "Foo", Identifier("Bar"), OpenList},
 		{"import foo as bar exposing (..)", false, false, "", nil, nil},
-		{"import Foo exposing (foo)", true, false, "Foo", nil, [][]string{{"foo"}}},
-		{"import Foo exposing (foo, bar)", true, false, "Foo", nil, [][]string{{"foo"}, {"bar"}}},
-		{"import Foo exposing (foo, bar, baz)", true, false, "Foo", nil, [][]string{{"foo"}, {"bar"}, {"baz"}}},
-		{"import Foo exposing (foo, (:>), baz)", true, false, "Foo", nil, [][]string{{"foo"}, {":>"}, {"baz"}}},
-		{"import Foo exposing ((:>), (:>), (:>))", true, false, "Foo", nil, [][]string{{":>"}, {":>"}, {":>"}}},
+		{"import Foo exposing (foo)", true, false, "Foo", nil, ClosedList(
+			ExposedVar("foo"),
+		)},
+		{"import Foo exposing (foo, bar)", true, false, "Foo", nil, ClosedList(
+			ExposedVar("foo"),
+			ExposedVar("bar"),
+		)},
+		{"import Foo exposing (foo, bar, baz)", true, false, "Foo", nil, ClosedList(
+			ExposedVar("foo"),
+			ExposedVar("bar"),
+			ExposedVar("baz"),
+		)},
+		{"import Foo exposing (foo, (:>), baz)", true, false, "Foo", nil, ClosedList(
+			ExposedVar("foo"),
+			ExposedVar(":>"),
+			ExposedVar("baz"),
+		)},
+		{"import Foo exposing ((:>), (:>), (:>))", true, false, "Foo", nil, ClosedList(
+			ExposedVar(":>"),
+			ExposedVar(":>"),
+			ExposedVar(":>"),
+		)},
 		{"import Foo exposing (bar(..))", false, false, "", nil, nil},
-		{"import Foo exposing (foo, Bar(..), Baz(A, B, C))", true, false, "Foo", nil, [][]string{
-			{"foo"},
-			{"Bar", ".."},
-			{"Baz", "A", "B", "C"},
-		}},
+		{"import Foo exposing (foo, Bar(..), Baz(A, B, C))", true, false, "Foo", nil, ClosedList(
+			ExposedVar("foo"),
+			ExposedUnion("Bar", OpenList),
+			ExposedUnion("Baz", ClosedList(
+				ExposedVar("A"),
+				ExposedVar("B"),
+				ExposedVar("C"),
+			)),
+		)},
 	}
 
 	for _, c := range cases {
 		t.Run(c.input, func(t *testing.T) {
-			var exposed []ExposedIdentAssert
-			for _, e := range c.exposed {
-				exposed = append(exposed, ExposedIdent(e[0], e[1:]...))
-			}
-
 			defer assertEOF(t, c.input, c.eof)
 			p := stringParser(t, c.input)
 			defer p.sess.Emit()
 			imp := parseImport(p)
 			if c.ok {
-				Import(c.module, c.alias, exposed...)(t, imp)
+				Import(c.module, c.alias, c.exposed)(t, imp)
 			}
 			require.Equal(t, c.ok, p.sess.IsOK())
 		})
@@ -222,7 +261,7 @@ func TestParseTypeAlias(t *testing.T) {
 			Alias(
 				"Foo",
 				nil,
-				BasicType("Int"),
+				NamedType("Int"),
 			),
 		},
 		{
@@ -238,7 +277,7 @@ func TestParseTypeAlias(t *testing.T) {
 			Alias(
 				"Foo",
 				nil,
-				BasicType("Int"),
+				NamedType("Int"),
 			),
 		},
 		{
@@ -246,9 +285,9 @@ func TestParseTypeAlias(t *testing.T) {
 			Alias(
 				"Foo",
 				[]string{"a"},
-				BasicType(
+				NamedType(
 					"List",
-					BasicType("a"),
+					VarType("a"),
 				),
 			),
 		},
@@ -257,10 +296,10 @@ func TestParseTypeAlias(t *testing.T) {
 			Alias(
 				"Foo",
 				[]string{"a", "b"},
-				BasicType(
+				NamedType(
 					"HashMap",
-					BasicType("a"),
-					BasicType("b"),
+					VarType("a"),
+					VarType("b"),
 				),
 			),
 		},
@@ -318,7 +357,7 @@ func TestParseTypeAlias(t *testing.T) {
 				Record(
 					RecordField(
 						"x",
-						BasicType("List", BasicType("a")),
+						NamedType("List", VarType("a")),
 					),
 				),
 			),
@@ -329,8 +368,8 @@ func TestParseTypeAlias(t *testing.T) {
 				"Point",
 				nil,
 				Tuple(
-					BasicType("Int"),
-					BasicType("Int"),
+					NamedType("Int"),
+					NamedType("Int"),
 				),
 			),
 		},
@@ -340,8 +379,8 @@ func TestParseTypeAlias(t *testing.T) {
 				"Foo",
 				[]string{"a", "b"},
 				Tuple(
-					BasicType("a"),
-					BasicType("b"),
+					VarType("a"),
+					VarType("b"),
 				),
 			),
 		},
@@ -351,8 +390,8 @@ func TestParseTypeAlias(t *testing.T) {
 				"Point",
 				nil,
 				Tuple(
-					BasicType("Int"),
-					BasicType("Int"),
+					NamedType("Int"),
+					NamedType("Int"),
 				),
 			),
 		},
@@ -362,9 +401,9 @@ func TestParseTypeAlias(t *testing.T) {
 				"PointMaker",
 				nil,
 				FuncType(
-					BasicType("Int"),
-					BasicType("Int"),
-					BasicType("Point"),
+					NamedType("Int"),
+					NamedType("Int"),
+					NamedType("Point"),
 				),
 			),
 		},
@@ -375,12 +414,12 @@ func TestParseTypeAlias(t *testing.T) {
 				nil,
 				FuncType(
 					FuncType(
-						BasicType("Int"),
-						BasicType("Int"),
-						BasicType("String"),
+						NamedType("Int"),
+						NamedType("Int"),
+						NamedType("String"),
 					),
-					BasicType("Int"),
-					BasicType("Float"),
+					NamedType("Int"),
+					NamedType("Float"),
 				),
 			),
 		},
@@ -391,12 +430,12 @@ func TestParseTypeAlias(t *testing.T) {
 				[]string{"a", "b"},
 				FuncType(
 					FuncType(
-						BasicType("a"),
-						BasicType("a"),
-						BasicType("b"),
+						VarType("a"),
+						VarType("a"),
+						VarType("b"),
 					),
-					BasicType("a"),
-					BasicType("b"),
+					VarType("a"),
+					VarType("b"),
 				),
 			),
 		},
@@ -407,12 +446,12 @@ func TestParseTypeAlias(t *testing.T) {
 				nil,
 				Tuple(
 					FuncType(
-						BasicType("Int"),
-						BasicType("Int"),
+						NamedType("Int"),
+						NamedType("Int"),
 					),
 					FuncType(
-						BasicType("Float"),
-						BasicType("Float"),
+						NamedType("Float"),
+						NamedType("Float"),
 					),
 				),
 			),
@@ -431,13 +470,13 @@ func TestParseTypeAlias(t *testing.T) {
 						RecordField(
 							"fn",
 							FuncType(
-								BasicType("Int"),
-								BasicType("Int"),
-								BasicType("Point"),
+								NamedType("Int"),
+								NamedType("Int"),
+								NamedType("Point"),
 							),
 						),
 					),
-					BasicType("Point"),
+					NamedType("Point"),
 				),
 			),
 		},
@@ -492,9 +531,9 @@ func TestParseTypeUnion(t *testing.T) {
 			Union(
 				"Cmp",
 				[]string{"a"},
-				Constructor("Lt", BasicType("a")),
-				Constructor("Eq", BasicType("a")),
-				Constructor("Gt", BasicType("a")),
+				Constructor("Lt", VarType("a")),
+				Constructor("Eq", VarType("a")),
+				Constructor("Gt", VarType("a")),
 			),
 		},
 		{
@@ -505,19 +544,19 @@ func TestParseTypeUnion(t *testing.T) {
 				Constructor(
 					"A",
 					Record(
-						BasicRecordField("a", "a"),
+						RecordField("a", VarType("a")),
 					),
 				),
 				Constructor(
 					"B",
 					Record(
-						BasicRecordField("b", "b"),
+						RecordField("b", VarType("b")),
 						BasicRecordField("c", "String"),
 					),
 				),
 				Constructor(
 					"C",
-					BasicType("List", BasicType("Int")),
+					NamedType("List", NamedType("Int")),
 				),
 			),
 		},
@@ -551,7 +590,7 @@ func TestParseDefinition(t *testing.T) {
 			inputLiteralAnn,
 			Definition(
 				"foo",
-				TypeAnnotation(BasicType("Int")),
+				TypeAnnotation(NamedType("Int")),
 				nil,
 				Literal(ast.Int, "5"),
 			),
@@ -723,9 +762,9 @@ func TestParseType(t *testing.T) {
 		},
 		{
 			"HashMap (Foo a) (List Int)",
-			BasicType("HashMap",
-				BasicType("Foo", BasicType("a")),
-				BasicType("List", BasicType("Int")),
+			NamedType("HashMap",
+				NamedType("Foo", VarType("a")),
+				NamedType("List", NamedType("Int")),
 			),
 		},
 		// TODO(erizocosmico): improve this tests cases and relieve pressure
@@ -944,7 +983,7 @@ func TestParseLet(t *testing.T) {
 			),
 		),
 		Definition("mux",
-			TypeAnnotation(BasicType("Int")),
+			TypeAnnotation(NamedType("Int")),
 			nil,
 			Literal(ast.Int, "7"),
 		),

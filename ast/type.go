@@ -8,23 +8,30 @@ type Type interface {
 	isType()
 }
 
-// BasicType is a type that has a name and optional arguments.
-type BasicType struct {
+// NamedType is a type that has a name and optional arguments.
+type NamedType struct {
 	// Name of the type.
 	Name Expr
 	// Args is the list of optional arguments of the type.
 	Args []Type
 }
 
-func (BasicType) isType()          {}
-func (t BasicType) Pos() token.Pos { return t.Name.Pos() }
-func (t BasicType) End() token.Pos {
+func (NamedType) isType()          {}
+func (t NamedType) Pos() token.Pos { return t.Name.Pos() }
+func (t NamedType) End() token.Pos {
 	if len(t.Args) > 0 {
 		return t.Args[len(t.Args)-1].End()
 	}
 
 	return t.Name.End()
 }
+
+// VarType is a variable type, that is, a generic type.
+type VarType struct {
+	*Ident
+}
+
+func (VarType) isType() {}
 
 // FuncType represents a function type. It has 1 or more arguments and a
 // return type.

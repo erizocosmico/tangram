@@ -12,7 +12,7 @@ import (
 )
 
 type (
-	FileAssert         func(*testing.T, *ast.File)
+	FileAssert         func(*testing.T, *ast.Module)
 	TypeAssert         func(*testing.T, ast.Type)
 	ConstructorAssert  func(*testing.T, *ast.Constructor)
 	DeclAssert         func(*testing.T, ast.Decl)
@@ -20,12 +20,13 @@ type (
 	ExprAssert         func(*testing.T, ast.Expr)
 	PatternAssert      func(*testing.T, ast.Pattern)
 	BranchAssert       func(*testing.T, *ast.CaseBranch)
-	ExposedIdentAssert func(*testing.T, *ast.ExposedIdent)
+	ExposedListAssert  func(*testing.T, ast.ExposedList)
+	ExposedIdentAssert func(*testing.T, ast.ExposedIdent)
 	ImportAssert       DeclAssert
 )
 
 func File(module DeclAssert, imports []ImportAssert, decls ...DeclAssert) FileAssert {
-	return func(t *testing.T, f *ast.File) {
+	return func(t *testing.T, f *ast.Module) {
 		module(t, f.Module)
 		require.Len(t, f.Imports, len(imports), "wrong number of imports")
 		for i, imp := range f.Imports {
@@ -39,26 +40,20 @@ func File(module DeclAssert, imports []ImportAssert, decls ...DeclAssert) FileAs
 	}
 }
 
-func Module(module string, exposed ...ExposedIdentAssert) DeclAssert {
+func Module(module string, exposed ExposedListAssert) DeclAssert {
 	return func(t *testing.T, decl ast.Decl) {
 		d, ok := decl.(*ast.ModuleDecl)
 		require.True(t, ok, "expecting decl to be ModuleDecl, is %T", decl)
 		require.Equal(t, module, d.ModuleName())
-
-		if len(exposed) == 0 {
-			require.Nil(t, d.Exposing, "expected no exposed idents")
+		if exposed == nil {
+			require.Nil(t, d.Exposing)
 		} else {
-			require.NotNil(t, d.Exposing)
-			require.Len(t, d.Exposing.Idents, len(exposed), "wrong number of exposed idents")
-
-			for i, id := range d.Exposing.Idents {
-				exposed[i](t, id)
-			}
+			exposed(t, d.Exposing)
 		}
 	}
 }
 
-func Import(module string, alias ExprAssert, exposed ...ExposedIdentAssert) ImportAssert {
+func Import(module string, alias ExprAssert, exposed ExposedListAssert) ImportAssert {
 	return func(t *testing.T, decl ast.Decl) {
 		d, ok := decl.(*ast.ImportDecl)
 		require.True(t, ok, "expecting decl to be ImportDecl, is %T", decl)
@@ -69,34 +64,44 @@ func Import(module string, alias ExprAssert, exposed ...ExposedIdentAssert) Impo
 			alias(t, d.Alias)
 		}
 
-		if len(exposed) == 0 {
-			require.Nil(t, d.Exposing, "expected no exposed idents")
+		if exposed == nil {
+			require.Nil(t, d.Exposing)
 		} else {
-			require.NotNil(t, d.Exposing)
-			require.Len(t, d.Exposing.Idents, len(exposed), "wrong number of exposed idents")
-
-			for i, id := range d.Exposing.Idents {
-				exposed[i](t, id)
-			}
+			exposed(t, d.Exposing)
 		}
 	}
 }
 
-func ExposedIdent(name string, ctors ...string) ExposedIdentAssert {
-	return func(t *testing.T, ident *ast.ExposedIdent) {
-		require.Equal(t, name, ident.Ident.Name)
-		if len(ctors) == 0 {
-			require.Nil(t, ident.Exposing, "expected no exposed constructors")
-		} else {
-			require.NotNil(t, ident.Exposing)
-			require.Len(t, ident.Exposing.Idents, len(ctors), "wrong number of exposed constructors")
-
-			for i, id := range ident.Exposing.Idents {
-				require.Equal(t, ctors[i], id.Name)
-				require.Nil(t, id.Exposing, "no constructors are allowed in a constructor exposed")
-			}
+func ClosedList(idents ...ExposedIdentAssert) ExposedListAssert {
+	return func(t *testing.T, list ast.ExposedList) {
+		l, ok := list.(*ast.ClosedList)
+		require.True(t, ok, "expecting exposed list to be ClosedList, is %T", list)
+		require.Len(t, l.Exposed, len(idents), "invalid number of exposed idents")
+		for i, id := range l.Exposed {
+			idents[i](t, id)
 		}
+	}
+}
 
+func OpenList(t *testing.T, list ast.ExposedList) {
+	_, ok := list.(*ast.OpenList)
+	require.True(t, ok, "expecting exposed list to be OpenList")
+}
+
+func ExposedVar(name string) ExposedIdentAssert {
+	return func(t *testing.T, ident ast.ExposedIdent) {
+		v, ok := ident.(*ast.ExposedVar)
+		require.True(t, ok, "expected exposed ident to be ExposedVar, is %T", ident)
+		require.Equal(t, name, v.Name)
+	}
+}
+
+func ExposedUnion(name string, exposed ExposedListAssert) ExposedIdentAssert {
+	return func(t *testing.T, ident ast.ExposedIdent) {
+		union, ok := ident.(*ast.ExposedUnion)
+		require.True(t, ok, "expected exposed ident to be ExposedUnion, is %T", ident)
+		require.Equal(t, name, union.Type.Name)
+		exposed(t, union.Ctors)
 	}
 }
 
@@ -220,23 +225,31 @@ func Selector(path ...string) ExprAssert {
 	}
 }
 
-func BasicType(name string, args ...TypeAssert) TypeAssert {
+func NamedType(name string, args ...TypeAssert) TypeAssert {
 	return func(t *testing.T, typ ast.Type) {
-		basic, ok := typ.(*ast.BasicType)
-		require.True(t, ok, "type is not basic type")
-		ident, ok := basic.Name.(*ast.Ident)
-		require.True(t, ok, "expected type name to be an identifier, not %T", basic.Name)
+		named, ok := typ.(*ast.NamedType)
+		require.True(t, ok, "type is not named type, is %T", typ)
+		ident, ok := named.Name.(*ast.Ident)
+		require.True(t, ok, "expected type name to be an identifier, not %T", named.Name)
 		require.Equal(t, name, ident.Name, "invalid type name")
-		require.Equal(t, len(args), len(basic.Args), "invalid number of type arguments")
+		require.Equal(t, len(args), len(named.Args), "invalid number of type arguments")
 		for i := range args {
-			args[i](t, basic.Args[i])
+			args[i](t, named.Args[i])
 		}
+	}
+}
+
+func VarType(name string) TypeAssert {
+	return func(t *testing.T, typ ast.Type) {
+		v, ok := typ.(*ast.VarType)
+		require.True(t, ok, "type is not VarType, is %T", typ)
+		require.Equal(t, name, v.Name)
 	}
 }
 
 func SelectorType(sel ExprAssert, args ...TypeAssert) TypeAssert {
 	return func(t *testing.T, typ ast.Type) {
-		basic, ok := typ.(*ast.BasicType)
+		basic, ok := typ.(*ast.NamedType)
 		require.True(t, ok, "type is not basic type, is %T", typ)
 		sel(t, basic.Name)
 		require.Equal(t, len(args), len(basic.Args), "invalid number of type arguments")
@@ -269,7 +282,7 @@ func RecordField(name string, assertType TypeAssert) recordFieldAssert {
 func BasicRecordField(name, typ string) recordFieldAssert {
 	return func(t *testing.T, f *ast.RecordField) {
 		require.Equal(t, name, f.Name.Name, "invalid record field name")
-		BasicType(typ)(t, f.Type)
+		NamedType(typ)(t, f.Type)
 	}
 }
 

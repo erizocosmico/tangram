@@ -68,7 +68,7 @@ type ParseResult struct {
 	// Modules contains a mapping between module names and ast files. All the
 	// modules will be in `Resolution` and if a module is not in here, it won't
 	// be in `Resolution`.
-	Modules map[string]*ast.File
+	Modules map[string]*ast.Module
 }
 
 // Parse will parse the file at the given path and all its imported modules
@@ -150,7 +150,7 @@ func (p *fullParser) parse(path string) *ParseResult {
 		)
 	}
 
-	r := &ParseResult{modules, make(map[string]*ast.File)}
+	r := &ParseResult{modules, make(map[string]*ast.Module)}
 	for _, m := range modules {
 		if file := p.completeParse(m); file != nil {
 			r.Modules[m] = file
@@ -207,7 +207,7 @@ func (p *fullParser) firstPass(path string, visited map[string]struct{}) {
 	}
 }
 
-func (p *fullParser) completeParse(module string) *ast.File {
+func (p *fullParser) completeParse(module string) *ast.Module {
 	path, err := p.pkg.FindModule(module)
 	if err != nil {
 		// TODO: fix this, but should be unreachable
@@ -232,7 +232,7 @@ func (p *fullParser) error(path, msg string, args ...interface{}) {
 // modules, even if it's explicitly requested in the ParseMode.
 // All parsing errors encountered will be retuned in the error return value,
 // even though StderrDiagnostics mode is present in mode.
-func ParseFrom(name string, src io.Reader, mode ParseMode) (f *ast.File, err error) {
+func ParseFrom(name string, src io.Reader, mode ParseMode) (f *ast.Module, err error) {
 	loader := source.NewMemLoader()
 	var content []byte
 	content, err = ioutil.ReadAll(src)

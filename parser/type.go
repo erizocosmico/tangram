@@ -12,7 +12,12 @@ func parseTypeList(p *parser) (types []ast.Type) {
 		case token.LeftParen, token.LeftBrace:
 			typ = parseType(p)
 		case token.Identifier:
-			typ = &ast.BasicType{Name: parseQualifiedIdentifier(p)}
+			ident := parseQualifiedIdentifier(p)
+			if name, ok := ident.(*ast.Ident); ok && isLower(name.Name) {
+				typ = &ast.VarType{name}
+			} else {
+				typ = &ast.NamedType{Name: ident}
+			}
 		}
 
 		if typ == nil {
@@ -86,10 +91,10 @@ func parseAtomType(p *parser) ast.Type {
 	case token.Identifier:
 		name := parseQualifiedIdentifier(p)
 		if name, ok := name.(*ast.Ident); ok && isLower(name.Name) {
-			return &ast.BasicType{Name: name}
+			return &ast.VarType{name}
 		}
 
-		return &ast.BasicType{
+		return &ast.NamedType{
 			Name: name,
 			Args: parseTypeList(p),
 		}

@@ -13,40 +13,58 @@ type Decl interface {
 	isDecl()
 }
 
-// ExposedIdent is an identifier exposed in an import or module declaration.
-// It can as well expose more identifiers in the case of union types.
-type ExposedIdent struct {
-	*Ident
-	// Exposing will contain all the exposed identifiers of this particular
-	// exposed identifier. Only union types will have this.
-	Exposing *ExposingList
+// ExposedList represents the list of exposed objects of an import or
+// module declaration.
+type ExposedList interface {
+	Node
+	isExposedList()
 }
 
-// NewExposedIdent creates a new exposed identifier.
-func NewExposedIdent(ident *Ident) *ExposedIdent {
-	return &ExposedIdent{Ident: ident}
+// ClosedList is a list with a fixed amount of objects exposed.
+type ClosedList struct {
+	Lparen  token.Pos
+	Rparen  token.Pos
+	Exposed []ExposedIdent
 }
 
-func (i *ExposedIdent) Pos() token.Pos { return i.Ident.Pos() }
-func (i *ExposedIdent) End() token.Pos {
-	if i.Exposing != nil {
-		return i.Exposing.End()
-	}
-	return i.Ident.End()
-}
+func (ClosedList) isExposedList()    {}
+func (l *ClosedList) Pos() token.Pos { return l.Lparen }
+func (l *ClosedList) End() token.Pos { return l.Rparen }
 
-// ExposingList is a list of exposed identifiers delimited by parenthesis.
-type ExposingList struct {
-	// Idents is the list of identifiers exposed.
-	Idents []*ExposedIdent
-	// Lparen is the position of the opening parenthesis.
+// OpenList means all objects in a module are exposed.
+type OpenList struct {
 	Lparen token.Pos
-	// Rparen is the position of the closing parenthesis.
 	Rparen token.Pos
 }
 
-func (l *ExposingList) Pos() token.Pos { return l.Lparen }
-func (l *ExposingList) End() token.Pos { return l.Rparen }
+func (OpenList) isExposedList()    {}
+func (l *OpenList) Pos() token.Pos { return l.Lparen }
+func (l *OpenList) End() token.Pos { return l.Rparen }
+
+// ExposedIdent represents an identifier exposed by a module.
+type ExposedIdent interface {
+	Node
+	isExposedIdent()
+}
+
+// ExposedVar is a variable, either a definition or the result of a
+// destructuring that is exposed by a module.
+type ExposedVar struct {
+	*Ident
+}
+
+func (ExposedVar) isExposedIdent() {}
+
+// ExposedUnion is a type union being exposed by a module along with some or all
+// its constructors.
+type ExposedUnion struct {
+	Type  *Ident
+	Ctors ExposedList
+}
+
+func (ExposedUnion) isExposedIdent()   {}
+func (e *ExposedUnion) Pos() token.Pos { return e.Type.Pos() }
+func (e *ExposedUnion) End() token.Pos { return e.Ctors.End() }
 
 // ModuleDecl is a node representing a module declaration and contains the
 // name of the module and the identifiers it exposes, if any.
@@ -56,17 +74,12 @@ type ModuleDecl struct {
 	// Module is the position of the "module" keyword.
 	Module token.Pos
 	// Exposing is the list of exposed identifiers, if any.
-	Exposing *ExposingList
+	Exposing ExposedList
 }
 
 func (d *ModuleDecl) Pos() token.Pos { return d.Module }
-func (d *ModuleDecl) End() token.Pos {
-	if d.Exposing == nil {
-		return d.Name.End()
-	}
-	return d.Exposing.End()
-}
-func (d *ModuleDecl) isDecl() {}
+func (d *ModuleDecl) End() token.Pos { return d.Exposing.End() }
+func (d *ModuleDecl) isDecl()        {}
 
 // ModuleName returns the name of the module.
 func (d *ModuleDecl) ModuleName() string {
@@ -87,13 +100,16 @@ type ImportDecl struct {
 	// Import is the position of the "import" keyword.
 	Import token.Pos
 	// Exposing is the list of identifiers exposed, if any.
-	Exposing *ExposingList
+	Exposing ExposedList
 }
 
 func (d *ImportDecl) Pos() token.Pos { return d.Import }
 func (d *ImportDecl) End() token.Pos {
 	if d.Exposing == nil {
-		return d.Module.End()
+		if d.Alias == nil {
+			return d.Module.End()
+		}
+		return d.Alias.End()
 	}
 	return d.Exposing.End()
 }
