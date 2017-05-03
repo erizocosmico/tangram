@@ -2,6 +2,8 @@
 
 **elm(g)o** is a compiler to bring the Elm language to more places other than the frontend. For that, it compiles to the Go language, which enables a interop with it and the usage of its ecosystem.
 
+**Current status:** deep in the resolving phase, I have found a lot of details to take care of, so a very big PR will come soon with all these changes. After that, the whole project will be moved to an organization and renamed to tangram.
+
 **NOTE:** For now, this is just a toy project and highly experimental.
 
 ### Goals
