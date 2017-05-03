@@ -11,6 +11,7 @@ import (
 
 	"github.com/elm-tangram/tangram/ast"
 	"github.com/elm-tangram/tangram/operator"
+	"github.com/elm-tangram/tangram/package"
 	"github.com/elm-tangram/tangram/report"
 	"github.com/elm-tangram/tangram/scanner"
 	"github.com/elm-tangram/tangram/source"
