@@ -17,6 +17,7 @@ Elm is a very simple, pragmatic and well-thought language. It's a perfect fit fo
 
 ### Roadmap
 
+- [ ] Get rid of some TODOs required for the next steps and implement some missing parser features.
 - [ ] Type check
 - [ ] Generate Go ASTs from Elm ASTs
 - [ ] Go interop and `Native` modules
