@@ -71,12 +71,51 @@ func TestParseFull(t *testing.T) {
 	result, err := Parse(path, FullParse)
 	require.NoError(err)
 
-	require.Len(result.Modules, 3)
-	require.Equal([]string{"Internal.Dependency", "Dependency", "Main"}, result.Resolution)
+	require.Len(result.Modules, 10)
+	require.Equal(
+		[]string{
+			"Basics",
+			"List",
+			"Maybe",
+			"Result",
+			"String",
+			"Tuple",
+			"Debug",
+			"Internal.Dependency",
+			"Dependency",
+			"Main",
+		},
+		result.Order,
+	)
 
 	mainExpected := File(
 		Module("Main", OpenList),
 		[]ImportAssert{
+			Import("Basics", nil, OpenList),
+			Import("List", nil, ClosedList(
+				ExposedVar("::"),
+			)),
+			Import("Maybe", nil, ClosedList(
+				ExposedUnion(
+					"Maybe",
+					ClosedList(
+						ExposedVar("Just"),
+						ExposedVar("Nothing"),
+					),
+				),
+			)),
+			Import("Result", nil, ClosedList(
+				ExposedUnion(
+					"Result",
+					ClosedList(
+						ExposedVar("Ok"),
+						ExposedVar("Err"),
+					),
+				),
+			)),
+			Import("String", nil, nil),
+			Import("Tuple", nil, nil),
+			Import("Debug", nil, nil),
 			Import("Internal.Dependency", nil, ClosedList(
 				ExposedVar("maybeStr"),
 			)),
@@ -86,7 +125,7 @@ func TestParseFull(t *testing.T) {
 		},
 		Definition(
 			"main",
-			TypeAnnotation(NamedType("Program", NamedType("String"))),
+			TypeAnnotation(NamedType("String")),
 			nil,
 			BinaryOp(
 				"?:",
@@ -102,7 +141,33 @@ func TestParseFull(t *testing.T) {
 
 	internalDepExpected := File(
 		Module("Internal.Dependency", ClosedList(ExposedVar("maybeStr"))),
-		nil,
+		[]ImportAssert{
+			Import("Basics", nil, OpenList),
+			Import("List", nil, ClosedList(
+				ExposedVar("::"),
+			)),
+			Import("Maybe", nil, ClosedList(
+				ExposedUnion(
+					"Maybe",
+					ClosedList(
+						ExposedVar("Just"),
+						ExposedVar("Nothing"),
+					),
+				),
+			)),
+			Import("Result", nil, ClosedList(
+				ExposedUnion(
+					"Result",
+					ClosedList(
+						ExposedVar("Ok"),
+						ExposedVar("Err"),
+					),
+				),
+			)),
+			Import("String", nil, nil),
+			Import("Tuple", nil, nil),
+			Import("Debug", nil, nil),
+		},
 		Definition(
 			"maybeStr",
 			TypeAnnotation(NamedType("Maybe", NamedType("String"))),
@@ -118,7 +183,33 @@ func TestParseFull(t *testing.T) {
 		Module("Dependency", ClosedList(
 			ExposedVar("?"), ExposedVar("?:"),
 		)),
-		nil,
+		[]ImportAssert{
+			Import("Basics", nil, OpenList),
+			Import("List", nil, ClosedList(
+				ExposedVar("::"),
+			)),
+			Import("Maybe", nil, ClosedList(
+				ExposedUnion(
+					"Maybe",
+					ClosedList(
+						ExposedVar("Just"),
+						ExposedVar("Nothing"),
+					),
+				),
+			)),
+			Import("Result", nil, ClosedList(
+				ExposedUnion(
+					"Result",
+					ClosedList(
+						ExposedVar("Ok"),
+						ExposedVar("Err"),
+					),
+				),
+			)),
+			Import("String", nil, nil),
+			Import("Tuple", nil, nil),
+			Import("Debug", nil, nil),
+		},
 		Definition(
 			"?",
 			TypeAnnotation(

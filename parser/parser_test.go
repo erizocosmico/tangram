@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"github.com/erizocosmico/elmo/ast"
-	"github.com/erizocosmico/elmo/diagnostic"
 	"github.com/erizocosmico/elmo/operator"
+	"github.com/erizocosmico/elmo/report"
 	"github.com/erizocosmico/elmo/scanner"
 	"github.com/erizocosmico/elmo/source"
 	"github.com/stretchr/testify/require"
@@ -1345,7 +1345,7 @@ func stringParser(t *testing.T, str string) *parser {
 	loader.Add("test", str)
 	cm := source.NewCodeMap(loader)
 	require.NoError(t, cm.Add("test"))
-	d := diagnostic.NewDiagnoser(cm, diagnostic.Stderr(true, true))
+	d := report.NewReporter(cm, report.Stderr(true, true))
 
 	opTable := operator.BuiltinTable()
 	opTable.Add(":>", "", operator.NonAssoc, 5)

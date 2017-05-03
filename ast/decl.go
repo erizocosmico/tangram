@@ -174,17 +174,25 @@ type UnionDecl struct {
 	Name *Ident
 	// Args are the optional arguments of the type.
 	Args []*Ident
-	// Types is the list of constructors for the union type.
-	Types []*Constructor
+	// Ctors is the list of constructors for the union type.
+	Ctors []*Constructor
 }
 
 func (d UnionDecl) isDecl()        {}
 func (d UnionDecl) Pos() token.Pos { return d.TypePos }
 func (d UnionDecl) End() token.Pos {
-	if len(d.Types) == 0 {
+	if len(d.Ctors) == 0 {
 		return token.NoPos
 	}
-	return d.Types[len(d.Types)-1].End()
+	return d.Ctors[len(d.Ctors)-1].End()
+}
+func (d UnionDecl) LookupCtor(name string) *Constructor {
+	for _, t := range d.Ctors {
+		if t.Name.Name == name {
+			return t
+		}
+	}
+	return nil
 }
 
 // Constructor is a node representing the constructor of an union type.

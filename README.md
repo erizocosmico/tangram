@@ -28,9 +28,10 @@ The choice of Go as the host language is basically because of its great ecosyste
   - [x] Parse expressions
   - [x] Polish parser, improve test cases, etc
   - [x] 2-pass parse (pass 1: collect imports and operator fixity declarations, pass 2: actual parsing)
-- [ ] Semantic analysis
+  - [x] Resolution of names
+- [ ] Type check
 - [ ] Generate Go ASTs from Elm ASTs
-- [ ] Module management
+- [x] Module management
 - [ ] Go interop and `Native` modules
 - [ ] Native implementations for `elm-lang/core`
 - [ ] Package management

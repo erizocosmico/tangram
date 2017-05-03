@@ -431,7 +431,7 @@ func mkAliasDecl(name *Ident, args []*Ident, typ Type) *AliasDecl {
 
 func mkUnionDecl(name *Ident, args []*Ident, types ...*Constructor) *UnionDecl {
 	inc("*ast.UnionDecl")
-	return &UnionDecl{Name: name, Args: args, Types: types}
+	return &UnionDecl{Name: name, Args: args, Ctors: types}
 }
 
 func mkConstructor(name *Ident, args ...Type) *Constructor {
@@ -511,17 +511,17 @@ func mkCtorPattern(ctor *Ident, patterns ...Pattern) *CtorPattern {
 
 func mkTuplePattern(patterns ...Pattern) *TuplePattern {
 	inc("*ast.TuplePattern")
-	return &TuplePattern{Patterns: patterns}
+	return &TuplePattern{Elems: patterns}
 }
 
 func mkRecordPattern(patterns ...Pattern) *RecordPattern {
 	inc("*ast.RecordPattern")
-	return &RecordPattern{Patterns: patterns}
+	return &RecordPattern{Fields: patterns}
 }
 
 func mkListPattern(patterns ...Pattern) *ListPattern {
 	inc("*ast.ListPattern")
-	return &ListPattern{Patterns: patterns}
+	return &ListPattern{Elems: patterns}
 }
 
 func mkTupleLit(elems ...Expr) *TupleLit {

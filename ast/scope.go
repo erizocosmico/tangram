@@ -1,66 +1,116 @@
 package ast
 
 type Scope interface {
-	Lookup(string) *Object
-	Resolve(string, *Ident)
+	Lookup(string, ObjKind) *Object
+	Resolve(string, *Ident, ObjKind)
 	Add(*Object) bool
+	AddChildren(*NodeScope)
+	Children() []*NodeScope
 }
 
 type ModuleScope struct {
 	*NodeScope
-	Exported map[string]*Object
+	Exposed  map[string]*Object
 	Imported map[string]*Object
+	Modules  map[string]*Object
 }
 
 func NewModuleScope(root Node) *ModuleScope {
 	return &ModuleScope{
 		NodeScope: NewNodeScope(root, nil),
-		Exported:  make(map[string]*Object),
+		Exposed:   make(map[string]*Object),
 		Imported:  make(map[string]*Object),
+		Modules:   make(map[string]*Object),
 	}
 }
 
-func (s *ModuleScope) Lookup(name string) *Object {
-	if obj := s.Imported[name]; obj != nil {
+func (s *ModuleScope) Expose(obj *Object) {
+	s.Exposed[obj.Name] = obj
+}
+
+func (s *ModuleScope) ImportModule(obj *Object) {
+	s.Modules[obj.Name] = obj
+}
+
+func (s *ModuleScope) Import(obj *Object) {
+	s.Imported[obj.Name] = obj
+}
+
+func (s *ModuleScope) Lookup(name string, kind ObjKind) *Object {
+	if kind == Mod || kind == NativeMod {
+		return s.Modules[name]
+	}
+
+	if obj := s.NodeScope.Lookup(name, kind); obj != nil {
 		return obj
 	}
 
-	return s.NodeScope.Lookup(name)
+	if obj := s.Imported[name]; obj != nil && obj.Kind == kind {
+		return obj
+	}
+
+	return nil
 }
 
-func (s *ModuleScope) Resolve(name string, id *Ident) {
-	if obj := s.Imported[name]; obj != nil {
+func (s *ModuleScope) LookupSelf(name string, kind ObjKind) *Object {
+	return s.NodeScope.Lookup(name, kind)
+}
+
+func (s *ModuleScope) LookupExposed(name string, kind ObjKind) *Object {
+	if obj := s.Exposed[name]; obj != nil && obj.Kind == kind {
+		return obj
+	}
+	return nil
+}
+
+func (s *ModuleScope) Resolve(name string, id *Ident, kind ObjKind) {
+	if obj := s.Imported[name]; obj != nil && obj.Kind == kind {
 		id.Obj = obj
 	} else {
-		s.NodeScope.Resolve(name, id)
+		s.NodeScope.Resolve(name, id, kind)
 	}
 }
 
 type NodeScope struct {
 	Parent Scope
 	Root   Node
-	// Exposed contains all the objects exposed by this scope.
-	Exposed map[string]*Object
 	// Objects contains all the objects defined in this scope.
 	Objects    map[string]*Object
 	Unresolved map[string][]*Ident
+	children   []*NodeScope
 }
 
 func NewNodeScope(root Node, parent Scope) *NodeScope {
-	return &NodeScope{
+	s := &NodeScope{
 		Parent:     parent,
 		Root:       root,
 		Objects:    make(map[string]*Object),
 		Unresolved: make(map[string][]*Ident),
 	}
+
+	if parent != nil {
+		parent.AddChildren(s)
+	}
+	return s
 }
 
-func (s *NodeScope) Lookup(name string) *Object {
-	result := s.Objects[name]
-	if result == nil && s.Parent != nil {
-		return s.Parent.Lookup(name)
+func (s *NodeScope) AddChildren(scope *NodeScope) {
+	s.children = append(s.children, scope)
+}
+
+func (s *NodeScope) Children() []*NodeScope {
+	return s.children
+}
+
+func (s *NodeScope) Lookup(name string, kind ObjKind) *Object {
+	if obj := s.Objects[name]; obj != nil && obj.Kind == kind {
+		return obj
 	}
-	return result
+
+	if s.Parent != nil {
+		return s.Parent.Lookup(name, kind)
+	}
+	return nil
 }
 
 func (s *NodeScope) Add(obj *Object) bool {
@@ -78,8 +128,8 @@ func (s *NodeScope) Add(obj *Object) bool {
 	return true
 }
 
-func (s *NodeScope) Resolve(name string, id *Ident) {
-	if obj := s.Lookup(name); obj != nil {
+func (s *NodeScope) Resolve(name string, id *Ident, kind ObjKind) {
+	if obj := s.Lookup(name, kind); obj != nil {
 		id.Obj = obj
 	} else {
 		s.Unresolved[name] = append(s.Unresolved[name], id)
@@ -107,20 +157,22 @@ const (
 	Bad ObjKind = iota
 	Mod
 	Typ
-	Def
-	Op
 	Ctor
 	Var
+	VarTyp
+	BuiltinTyp
+	NativeMod
 )
 
 var objKindStrings = [...]string{
 	"invalid",
 	"module",
 	"type",
-	"definition",
-	"operator",
 	"constructor",
 	"variable",
+	"type variable",
+	"builtin type",
+	"native module",
 }
 
 func (k ObjKind) String() string {

@@ -89,15 +89,15 @@ func parseAtomType(p *parser) ast.Type {
 		p.expect(token.RightParen)
 		return typ
 	case token.Identifier:
-		name := parseQualifiedIdentifier(p)
-		if name, ok := name.(*ast.Ident); ok && isLower(name.Name) {
-			return &ast.VarType{name}
+		if isUpper(p.tok.Value) {
+			name := parseUpperQualifiedIdentifier(p)
+			return &ast.NamedType{
+				Name: name,
+				Args: parseTypeList(p),
+			}
 		}
 
-		return &ast.NamedType{
-			Name: name,
-			Args: parseTypeList(p),
-		}
+		return &ast.VarType{parseLowerName(p)}
 	case token.LeftBrace:
 		return parseRecordType(p)
 	default:

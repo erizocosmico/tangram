@@ -14,10 +14,13 @@ type Node interface {
 // file.
 type Module struct {
 	Name    string
+	Path    string
 	Module  *ModuleDecl
 	Imports []*ImportDecl
-	Decls   []Decl
-	Scope   *ModuleScope
+	// NativeImports contains the path to all the native modules imported.
+	NativeImports []string
+	Decls         []Decl
+	Scope         *ModuleScope
 }
 
 func (f *Module) Pos() token.Pos { return f.Module.Pos() }

@@ -41,6 +41,20 @@ func parseTerm(p *parser) ast.Expr {
 	return nil
 }
 
+func parseUpperQualifiedIdentifier(p *parser) ast.Expr {
+	path := []*ast.Ident{parseUpperName(p)}
+	for p.is(token.Dot) {
+		p.expectAfter(token.Dot, path[len(path)-1])
+		path = append(path, parseUpperName(p))
+	}
+
+	if len(path) > 1 {
+		return ast.NewSelectorExpr(path...)
+	}
+
+	return path[0]
+}
+
 // parseQualifiedIdentifier parses an identifier and its qualifier, if any.
 // This should only be used outside of expressions, as expressions already
 // parse selector expressions by themselves.

@@ -103,7 +103,7 @@ func Walk(v Visitor, node Node) {
 			Walk(v, a)
 		}
 
-		for _, t := range node.Types {
+		for _, t := range node.Ctors {
 			Walk(v, t)
 		}
 
@@ -180,18 +180,18 @@ func Walk(v Visitor, node Node) {
 
 	case *CtorPattern:
 		Walk(v, node.Ctor)
-		for _, p := range node.Patterns {
+		for _, p := range node.Args {
 			Walk(v, p)
 		}
 
 	case *TuplePattern:
-		walkPatterns(v, node.Patterns)
+		walkPatterns(v, node.Elems)
 
 	case *RecordPattern:
-		walkPatterns(v, node.Patterns)
+		walkPatterns(v, node.Fields)
 
 	case *ListPattern:
-		walkPatterns(v, node.Patterns)
+		walkPatterns(v, node.Elems)
 
 	// Exprs
 	case *Ident, *BasicLit:

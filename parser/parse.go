@@ -7,13 +7,15 @@ import (
 	"io/ioutil"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/erizocosmico/elmo/ast"
-	"github.com/erizocosmico/elmo/diagnostic"
 	"github.com/erizocosmico/elmo/operator"
 	"github.com/erizocosmico/elmo/package"
+	"github.com/erizocosmico/elmo/report"
 	"github.com/erizocosmico/elmo/scanner"
 	"github.com/erizocosmico/elmo/source"
+	"github.com/erizocosmico/elmo/token"
 )
 
 // ParseMode specifies the type of mode in which the parser will be run.
@@ -44,7 +46,7 @@ func (pm ParseMode) Is(flag ParseMode) bool {
 
 // Session represents the current parsing session.
 type Session struct {
-	*diagnostic.Diagnoser
+	*report.Reporter
 	*source.CodeMap
 	*operator.Table
 }
@@ -52,11 +54,11 @@ type Session struct {
 // NewSession creates a new parsing session with a way of diagnosing errors
 // and a code map.
 func NewSession(
-	d *diagnostic.Diagnoser,
+	r *report.Reporter,
 	cm *source.CodeMap,
 	ops *operator.Table,
 ) *Session {
-	return &Session{d, cm, ops}
+	return &Session{r, cm, ops}
 }
 
 // ParseResult is the result after a full parse, which is a set of parsed files
@@ -73,7 +75,7 @@ type ParseResult struct {
 
 // Parse will parse the file at the given path and all its imported modules
 // with the given mode of parsing.
-func Parse(path string, mode ParseMode) (result *ParseResult, err error) {
+func Parse(path string, mode ParseMode) (result *ast.Package, err error) {
 	pkg, err := pkg.Load(filepath.Dir(path))
 	if err != nil {
 		return nil, err
@@ -82,11 +84,11 @@ func Parse(path string, mode ParseMode) (result *ParseResult, err error) {
 	cm := source.NewCodeMap(source.NewFsLoader(pkg))
 	defer cm.Close()
 
-	var emitter diagnostic.Emitter
+	var emitter report.Emitter
 	if mode.Is(StderrDiagnostics) {
-		emitter = diagnostic.Stderr(!mode.Is(SkipWarnings), true)
+		emitter = report.Stderr(!mode.Is(SkipWarnings), true)
 	} else {
-		emitter = diagnostic.Errors(!mode.Is(SkipWarnings))
+		emitter = report.Errors(!mode.Is(SkipWarnings))
 	}
 
 	var optable *operator.Table
@@ -96,7 +98,8 @@ func Parse(path string, mode ParseMode) (result *ParseResult, err error) {
 		optable = operator.NewTable()
 	}
 
-	sess := NewSession(diagnostic.NewDiagnoser(cm, emitter), cm, optable)
+	reporter := report.NewReporter(cm, emitter)
+	sess := NewSession(reporter, cm, optable)
 
 	p := newParser(sess)
 	defer catchBailout()
@@ -108,30 +111,36 @@ func Parse(path string, mode ParseMode) (result *ParseResult, err error) {
 		defer sess.Emit()
 	}
 
-	fp := newFullParser(p, pkg, optable, cm)
+	fp := newFullParser(p, pkg, optable, cm, reporter)
 	result = fp.parse(path)
 	return
 }
 
 type fullParser struct {
-	p       *parser
-	pkg     *pkg.Package
-	optable *operator.Table
-	cm      *source.CodeMap
-	g       *pkg.Graph
+	p        *parser
+	pkg      *pkg.Package
+	optable  *operator.Table
+	cm       *source.CodeMap
+	g        *pkg.Graph
+	reporter *report.Reporter
+	resolver *resolver
+	modCache map[string]string
 }
 
-func newFullParser(p *parser, pkg *pkg.Package, optable *operator.Table, cm *source.CodeMap) *fullParser {
+func newFullParser(p *parser, pkg *pkg.Package, optable *operator.Table, cm *source.CodeMap, r *report.Reporter) *fullParser {
 	return &fullParser{
 		p,
 		pkg,
 		optable,
 		cm,
 		nil,
+		r,
+		&resolver{reporter: r},
+		make(map[string]string),
 	}
 }
 
-func (p *fullParser) parse(path string) *ParseResult {
+func (p *fullParser) parse(path string) *ast.Package {
 	// do a first parse to gather all the imports and operator fixities
 	p.firstPass(path, make(map[string]struct{}))
 
@@ -150,11 +159,15 @@ func (p *fullParser) parse(path string) *ParseResult {
 		)
 	}
 
-	r := &ParseResult{modules, make(map[string]*ast.Module)}
+	r := &ast.Package{Order: modules, Modules: make(map[string]*ast.Module)}
 	for _, m := range modules {
 		if file := p.completeParse(m); file != nil {
 			r.Modules[m] = file
 		}
+	}
+
+	if !p.resolver.resolve(r) {
+		return nil
 	}
 
 	return r
@@ -184,19 +197,30 @@ func (p *fullParser) firstPass(path string, visited map[string]struct{}) {
 
 	for _, imp := range file.Imports {
 		importMod := imp.ModuleName()
-		if _, ok := visited[importMod]; ok {
-			continue
+
+		importPath, ok := p.modCache[importMod]
+		if !ok {
+			var err error
+			importPath, err = p.pkg.FindModule(importMod)
+			if err != nil {
+				p.error(
+					path,
+					fmt.Sprintf("I could not find module %q in any of the package source directories or any of its dependencies. Maybe you're missing a dependency?", importMod),
+				)
+				continue
+			}
+			p.modCache[importMod] = importPath
 		}
 
-		p.g.Add(importMod, mod)
-		importPath, err := p.pkg.FindModule(importMod)
-		if err != nil {
-			p.error(
-				path,
-				fmt.Sprintf("I could not find module %q in any of the package source directories or any of its dependencies. Maybe you're missing a dependency?", path),
-			)
+		if isNative(importPath) {
+			file.NativeImports = append(file.NativeImports, importPath)
+		} else {
+			p.g.Add(importMod, mod)
+
+			if _, ok := visited[importMod]; !ok {
+				p.firstPass(importPath, visited)
+			}
 		}
-		p.firstPass(importPath, visited)
 	}
 
 	for _, d := range file.Decls {
@@ -205,6 +229,10 @@ func (p *fullParser) firstPass(path string, visited map[string]struct{}) {
 			p.optable.Add(fixity.Op.Name, mod, fixity.Assoc, uint(n))
 		}
 	}
+}
+
+func isNative(path string) bool {
+	return strings.HasSuffix(path, ".go")
 }
 
 func (p *fullParser) completeParse(module string) *ast.Module {
@@ -221,10 +249,9 @@ func (p *fullParser) completeParse(module string) *ast.Module {
 
 func (p *fullParser) error(path, msg string, args ...interface{}) {
 	msg = fmt.Sprintf(msg, args...)
-	p.p.sess.Diagnose(
-		path,
-		diagnostic.NewMsgDiagnostic(diagnostic.Error, bytes.NewBuffer([]byte(msg))),
-	)
+	p.p.sess.Report(path, report.NewBaseReport(
+		report.SyntaxError, token.NoPos, msg, nil,
+	))
 }
 
 // ParseFrom parses the contents of the given reader and returns the
@@ -245,7 +272,7 @@ func ParseFrom(name string, src io.Reader, mode ParseMode) (f *ast.Module, err e
 	defer cm.Close()
 
 	sess := NewSession(
-		diagnostic.NewDiagnoser(cm, diagnostic.Errors(!mode.Is(SkipWarnings))),
+		report.NewReporter(cm, report.Errors(!mode.Is(SkipWarnings))),
 		cm,
 		operator.BuiltinTable(),
 	)

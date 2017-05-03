@@ -261,7 +261,7 @@ func parseUnionType(p *parser, typePos token.Pos) ast.Decl {
 	decl.Name = parseUpperName(p)
 	decl.Args = parseTypeDeclArgs(p)
 	decl.Eq = p.expect(token.Assign)
-	decl.Types = parseConstructors(p)
+	decl.Ctors = parseConstructors(p)
 	return decl
 }
 

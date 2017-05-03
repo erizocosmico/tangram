@@ -100,7 +100,7 @@ func ExposedUnion(name string, exposed ExposedListAssert) ExposedIdentAssert {
 	return func(t *testing.T, ident ast.ExposedIdent) {
 		union, ok := ident.(*ast.ExposedUnion)
 		require.True(t, ok, "expected exposed ident to be ExposedUnion, is %T", ident)
-		require.Equal(t, name, union.Type.Name)
+		require.Equal(t, name, union.Type.Name, "wrong exposed union type name")
 		exposed(t, union.Ctors)
 	}
 }
@@ -174,9 +174,9 @@ func Union(
 		assertIdent(t, name, union.Name)
 		assertIdents(t, args, union.Args)
 
-		require.Equal(t, len(constructors), len(union.Types), "invalid number of constructors")
+		require.Equal(t, len(constructors), len(union.Ctors), "invalid number of constructors")
 		for i := range constructors {
-			constructors[i](t, union.Types[i])
+			constructors[i](t, union.Ctors[i])
 		}
 	}
 }
@@ -495,10 +495,10 @@ func TuplePattern(elems ...PatternAssert) PatternAssert {
 	return func(t *testing.T, pattern ast.Pattern) {
 		tuple, ok := pattern.(*ast.TuplePattern)
 		require.True(t, ok, "expected a tuple pattern")
-		require.Equal(t, len(elems), len(tuple.Patterns), "expecting same number of tuple pattern elements")
+		require.Equal(t, len(elems), len(tuple.Elems), "expecting same number of tuple pattern elements")
 
 		for i := range elems {
-			elems[i](t, tuple.Patterns[i])
+			elems[i](t, tuple.Elems[i])
 		}
 	}
 }
@@ -507,10 +507,10 @@ func ListPattern(elems ...PatternAssert) PatternAssert {
 	return func(t *testing.T, pattern ast.Pattern) {
 		list, ok := pattern.(*ast.ListPattern)
 		require.True(t, ok, "expected a list pattern")
-		require.Equal(t, len(elems), len(list.Patterns), "expecting same number of list pattern elements")
+		require.Equal(t, len(elems), len(list.Elems), "expecting same number of list pattern elements")
 
 		for i := range elems {
-			elems[i](t, list.Patterns[i])
+			elems[i](t, list.Elems[i])
 		}
 	}
 }
@@ -519,10 +519,10 @@ func RecordPattern(elems ...PatternAssert) PatternAssert {
 	return func(t *testing.T, pattern ast.Pattern) {
 		r, ok := pattern.(*ast.RecordPattern)
 		require.True(t, ok, "expected a record pattern")
-		require.Equal(t, len(elems), len(r.Patterns), "expecting same number of record pattern elements")
+		require.Equal(t, len(elems), len(r.Fields), "expecting same number of record pattern elements")
 
 		for i := range elems {
-			elems[i](t, r.Patterns[i])
+			elems[i](t, r.Fields[i])
 		}
 	}
 }
@@ -548,10 +548,10 @@ func CtorPattern(name string, elems ...PatternAssert) PatternAssert {
 	return func(t *testing.T, pattern ast.Pattern) {
 		ctor, ok := pattern.(*ast.CtorPattern)
 		require.True(t, ok, "expected a constructor pattern")
-		require.Equal(t, len(elems), len(ctor.Patterns), "expecting same number of constructor pattern elements")
+		require.Equal(t, len(elems), len(ctor.Args), "expecting same number of constructor pattern elements")
 
 		for i := range elems {
-			elems[i](t, ctor.Patterns[i])
+			elems[i](t, ctor.Args[i])
 		}
 	}
 }
