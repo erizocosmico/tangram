@@ -1,8 +1,8 @@
 package report
 
 import (
-	"github.com/erizocosmico/elmo/source"
-	"github.com/erizocosmico/elmo/token"
+	"github.com/elm-tangram/tangram/source"
+	"github.com/elm-tangram/tangram/token"
 )
 
 // Reporter is in charge of reporting the diagnostics occurred during any of

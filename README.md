@@ -1,44 +1,35 @@
-# elmo [![Build Status](https://travis-ci.org/erizocosmico/elmo.svg?branch=master)](https://travis-ci.org/erizocosmico/elmo) [![Test Coverage](https://codecov.io/github/erizocosmico/elmo/coverage.svg?branch=master)](https://codecov.io/gh/erizocosmico/elmo/branch/master) [![Go Report Card](https://goreportcard.com/badge/github.com/erizocosmico/elmo)](https://goreportcard.com/report/github.com/erizocosmico/elmo)
+[![Build Status](https://travis-ci.org/elm-tangram/tangram.svg?branch=master)](https://travis-ci.org/elm-tangram/tangram) [![Test Coverage](https://codecov.io/github/elm-tangram/tangram/coverage.svg?branch=master)](https://codecov.io/gh/elm-tangram/tangram/branch/master) [![Go Report Card](https://goreportcard.com/badge/github.com/elm-tangram/tangram)](https://goreportcard.com/report/github.com/elm-tangram/tangram)
 
-**elm(g)o** is a compiler to bring the Elm language to more places other than the frontend. For that, it compiles to the Go language, which enables a interop with it and the usage of its ecosystem.
-
-**Current status:** deep in the resolving phase, I have found a lot of details to take care of, so a very big PR will come soon with all these changes. After that, the whole project will be moved to an organization and renamed to tangram.
-
-**NOTE:** For now, this is just a toy project and highly experimental.
+`tangram` is an effort to bring the Elm language to the backend. It uses [Go](http://golang.org) as the host language, which comes for free with very nice features such as the always-improving garbage collector, static binaries, cross compilation, and a large ecosystem amongst other things.
 
 ### Goals
 
-* Interop between Elm and Go (probably not the other way around)
-* Keep as much of the Elm language as possible
-* Make as many parts of `elm-lang/core` as possible work out of the box to allow usage of third party elm libraries that only rely on non-frontend-specific `core` parts
+* Be an alternative implementation of the Elm language. The language will always remain exactly the same as Elm. Being the default imports and the libraries in `elm-lang/core` the only thing that will be different.
+* Ability to reuse all the Elm code in `elm-lang/core`, `elm-lang/html`, `elm-lang/http` and other important libraries.
+* Transparent usage of pure Elm libraries with zero effort.
+* Communication between Elm and Go using `port`s and `Native` modules, just like Elm does with JavaScript.
 
 ### Why?
 
-For fun, mostly. And because I think Elm is a great language and I'd like to use it for more purposes other than frontend. 
-The choice of Go as the host language is basically because of its great ecosystem.
+Elm is a very simple, pragmatic and well-thought language. It's a perfect fit for the frontend, and `tangram` aims to explore if it will be good on the backend as well.
 
 ### Roadmap
 
-- [x] Scan Elm code
-- [x] Parse scanned Elm code and build AST
-  - [x] Parse `module` declaration
-  - [x] Parse `import` declarations
-  - [x] Parse `type` declarations
-  - [x] Parse literals
-  - [x] Parse value declarations
-  - [x] Parse patterns
-  - [x] Parse expressions
-  - [x] Polish parser, improve test cases, etc
-  - [x] 2-pass parse (pass 1: collect imports and operator fixity declarations, pass 2: actual parsing)
-  - [x] Resolution of names
 - [ ] Type check
 - [ ] Generate Go ASTs from Elm ASTs
-- [x] Module management
 - [ ] Go interop and `Native` modules
 - [ ] Native implementations for `elm-lang/core`
 - [ ] Package management
+- [ ] Native implementations for `elm-lang/html`
+- [ ] Native implementations for `elm-lang/http`
+
+### Contributing
+
+Right now, contributing can be a bit chaotic. Some parts of the code are a mess and filled with TODOs waiting for a refactor that will come when everything is more or less functional. Nonetheless, if you are interested in contributing to the project you are welcomed to do so!
+
+You can take a look at the roadmap and if there's some part you want to work on just open an issue and you'll be guided through the code and such, if you need it.
 
 ### License
 
-**elmo** is licensed under the MIT license.
-**elmo** is **not** official or related to the `elm-lang` team in any way.
+**tangram** is licensed under the MIT license, see [LICENSE](/LICENSE)
+**tangram** is **not** official or related to the `elm-lang` team in any way.

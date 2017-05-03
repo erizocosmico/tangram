@@ -3,9 +3,9 @@ package parser
 import (
 	"fmt"
 
-	"github.com/erizocosmico/elmo/ast"
-	"github.com/erizocosmico/elmo/operator"
-	"github.com/erizocosmico/elmo/token"
+	"github.com/elm-tangram/tangram/ast"
+	"github.com/elm-tangram/tangram/operator"
+	"github.com/elm-tangram/tangram/token"
 )
 
 func parseTerm(p *parser) ast.Expr {

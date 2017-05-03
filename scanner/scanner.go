@@ -7,7 +7,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/erizocosmico/elmo/token"
+	"github.com/elm-tangram/tangram/token"
 )
 
 type stateFunc func(*Scanner) (stateFunc, error)

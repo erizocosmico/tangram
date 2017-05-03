@@ -3,8 +3,8 @@ package ast
 import (
 	"fmt"
 
-	"github.com/erizocosmico/elmo/operator"
-	"github.com/erizocosmico/elmo/token"
+	"github.com/elm-tangram/tangram/operator"
+	"github.com/elm-tangram/tangram/token"
 )
 
 // Decl is a declaration node.

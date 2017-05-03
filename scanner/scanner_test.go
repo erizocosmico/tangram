@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/erizocosmico/elmo/token"
+	"github.com/elm-tangram/tangram/token"
 	"github.com/stretchr/testify/require"
 )
 

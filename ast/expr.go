@@ -5,7 +5,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/erizocosmico/elmo/token"
+	"github.com/elm-tangram/tangram/token"
 )
 
 // Expr is an expression node.

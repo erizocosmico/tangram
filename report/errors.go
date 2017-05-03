@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/erizocosmico/elmo/ast"
-	"github.com/erizocosmico/elmo/token"
+	"github.com/elm-tangram/tangram/ast"
+	"github.com/elm-tangram/tangram/token"
 )
 
 // Name errors

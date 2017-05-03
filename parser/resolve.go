@@ -3,8 +3,8 @@ package parser
 import (
 	"strings"
 
-	"github.com/erizocosmico/elmo/ast"
-	"github.com/erizocosmico/elmo/report"
+	"github.com/elm-tangram/tangram/ast"
+	"github.com/elm-tangram/tangram/report"
 )
 
 type resolver struct {

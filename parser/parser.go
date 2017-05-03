@@ -6,12 +6,11 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/erizocosmico/elmo/ast"
-	"github.com/erizocosmico/elmo/operator"
-	"github.com/erizocosmico/elmo/package"
-	"github.com/erizocosmico/elmo/report"
-	"github.com/erizocosmico/elmo/scanner"
-	"github.com/erizocosmico/elmo/token"
+	"github.com/elm-tangram/tangram/ast"
+	"github.com/elm-tangram/tangram/operator"
+	"github.com/elm-tangram/tangram/report"
+	"github.com/elm-tangram/tangram/scanner"
+	"github.com/elm-tangram/tangram/token"
 )
 
 // defaultPos is a placeholder for a position of non-existent nodes in the

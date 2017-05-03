@@ -5,11 +5,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/erizocosmico/elmo/ast"
-	"github.com/erizocosmico/elmo/operator"
-	"github.com/erizocosmico/elmo/report"
-	"github.com/erizocosmico/elmo/scanner"
-	"github.com/erizocosmico/elmo/source"
+	"github.com/elm-tangram/tangram/ast"
+	"github.com/elm-tangram/tangram/operator"
+	"github.com/elm-tangram/tangram/report"
+	"github.com/elm-tangram/tangram/scanner"
+	"github.com/elm-tangram/tangram/source"
 	"github.com/stretchr/testify/require"
 )
 

@@ -7,8 +7,8 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/erizocosmico/elmo/scanner"
-	"github.com/erizocosmico/elmo/token"
+	"github.com/elm-tangram/tangram/scanner"
+	"github.com/elm-tangram/tangram/token"
 )
 
 // CodeMap contains a set of source code files.

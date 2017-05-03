@@ -1,6 +1,6 @@
 package ast
 
-import "github.com/erizocosmico/elmo/token"
+import "github.com/elm-tangram/tangram/token"
 
 // Pattern represents a pattern node.
 type Pattern interface {

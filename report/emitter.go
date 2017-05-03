@@ -6,7 +6,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/erizocosmico/elmo/source"
+	"github.com/elm-tangram/tangram/source"
 )
 
 // Emitter emits reports to the user.

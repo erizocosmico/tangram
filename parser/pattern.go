@@ -1,8 +1,8 @@
 package parser
 
 import (
-	"github.com/erizocosmico/elmo/ast"
-	"github.com/erizocosmico/elmo/token"
+	"github.com/elm-tangram/tangram/ast"
+	"github.com/elm-tangram/tangram/token"
 )
 
 const errorMsgInvalidArgPattern = `This is not a valid pattern for a function argument.

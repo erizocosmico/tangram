@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/erizocosmico/elmo/ast"
-	"github.com/erizocosmico/elmo/operator"
+	"github.com/elm-tangram/tangram/ast"
+	"github.com/elm-tangram/tangram/operator"
 
 	"github.com/stretchr/testify/require"
 )

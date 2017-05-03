@@ -1,8 +1,8 @@
 package parser
 
 import (
-	"github.com/erizocosmico/elmo/ast"
-	"github.com/erizocosmico/elmo/token"
+	"github.com/elm-tangram/tangram/ast"
+	"github.com/elm-tangram/tangram/token"
 )
 
 func parseTypeList(p *parser) (types []ast.Type) {

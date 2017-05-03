@@ -1,6 +1,6 @@
 package ast
 
-import "github.com/erizocosmico/elmo/token"
+import "github.com/elm-tangram/tangram/token"
 
 // Type is a node representing a type.
 type Type interface {

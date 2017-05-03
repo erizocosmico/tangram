@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/erizocosmico/elmo/ast"
-	"github.com/erizocosmico/elmo/operator"
-	"github.com/erizocosmico/elmo/token"
+	"github.com/elm-tangram/tangram/ast"
+	"github.com/elm-tangram/tangram/operator"
+	"github.com/elm-tangram/tangram/token"
 )
 
 func parseModule(p *parser) *ast.ModuleDecl {

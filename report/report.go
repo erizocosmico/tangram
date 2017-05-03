@@ -3,9 +3,9 @@ package report
 import (
 	"errors"
 
-	"github.com/erizocosmico/elmo/ast"
-	"github.com/erizocosmico/elmo/source"
-	"github.com/erizocosmico/elmo/token"
+	"github.com/elm-tangram/tangram/ast"
+	"github.com/elm-tangram/tangram/source"
+	"github.com/elm-tangram/tangram/token"
 	"github.com/fatih/color"
 )
 

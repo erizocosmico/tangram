@@ -9,13 +9,12 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/erizocosmico/elmo/ast"
-	"github.com/erizocosmico/elmo/operator"
-	"github.com/erizocosmico/elmo/package"
-	"github.com/erizocosmico/elmo/report"
-	"github.com/erizocosmico/elmo/scanner"
-	"github.com/erizocosmico/elmo/source"
-	"github.com/erizocosmico/elmo/token"
+	"github.com/elm-tangram/tangram/ast"
+	"github.com/elm-tangram/tangram/operator"
+	"github.com/elm-tangram/tangram/report"
+	"github.com/elm-tangram/tangram/scanner"
+	"github.com/elm-tangram/tangram/source"
+	"github.com/elm-tangram/tangram/token"
 )
 
 // ParseMode specifies the type of mode in which the parser will be run.
