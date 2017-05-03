@@ -5,6 +5,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	
+	"github.com/elm-tangram/tangram/package"
 )
 
 // Loader finds the absolute path of files in the project and is able to
