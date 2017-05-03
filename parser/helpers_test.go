@@ -261,10 +261,17 @@ func SelectorType(sel ExprAssert, args ...TypeAssert) TypeAssert {
 
 type recordFieldAssert func(*testing.T, *ast.RecordField)
 
-func Record(fields ...recordFieldAssert) TypeAssert {
+func Record(extended TypeAssert, fields ...recordFieldAssert) TypeAssert {
 	return func(t *testing.T, typ ast.Type) {
 		record, ok := typ.(*ast.RecordType)
 		require.True(t, ok, "type is not record type")
+
+		if extended == nil {
+			require.Nil(t, record.Extended, "record type does not extend anything")
+		} else {
+			extended(t, record.Extended)
+		}
+
 		require.Equal(t, len(fields), len(record.Fields), "invalid number of record fields")
 		for i := range fields {
 			fields[i](t, record.Fields[i])

@@ -309,6 +309,7 @@ func TestParseTypeAlias(t *testing.T) {
 				"Point",
 				nil,
 				Record(
+					nil,
 					BasicRecordField("x", "Int"),
 					BasicRecordField("y", "Int"),
 				),
@@ -319,7 +320,7 @@ func TestParseTypeAlias(t *testing.T) {
 			Alias(
 				"Nothing",
 				nil,
-				Record(),
+				Record(nil),
 			),
 		},
 		{
@@ -328,6 +329,7 @@ func TestParseTypeAlias(t *testing.T) {
 				"X",
 				nil,
 				Record(
+					nil,
 					BasicRecordField("x", "Int"),
 				),
 			),
@@ -338,9 +340,11 @@ func TestParseTypeAlias(t *testing.T) {
 				"Foo",
 				nil,
 				Record(
+					nil,
 					RecordField(
 						"x",
 						Record(
+							nil,
 							BasicRecordField("x1", "Int"),
 							BasicRecordField("x2", "Int"),
 						),
@@ -355,6 +359,7 @@ func TestParseTypeAlias(t *testing.T) {
 				"Foo",
 				[]string{"a"},
 				Record(
+					nil,
 					RecordField(
 						"x",
 						NamedType("List", VarType("a")),
@@ -463,10 +468,12 @@ func TestParseTypeAlias(t *testing.T) {
 				nil,
 				FuncType(
 					Record(
+						nil,
 						BasicRecordField("x", "Int"),
 						BasicRecordField("y", "Int"),
 					),
 					Record(
+						nil,
 						RecordField(
 							"fn",
 							FuncType(
@@ -544,12 +551,14 @@ func TestParseTypeUnion(t *testing.T) {
 				Constructor(
 					"A",
 					Record(
+						nil,
 						RecordField("a", VarType("a")),
 					),
 				),
 				Constructor(
 					"B",
 					Record(
+						nil,
 						RecordField("b", VarType("b")),
 						BasicRecordField("c", "String"),
 					),
@@ -765,6 +774,14 @@ func TestParseType(t *testing.T) {
 			NamedType("HashMap",
 				NamedType("Foo", VarType("a")),
 				NamedType("List", NamedType("Int")),
+			),
+		},
+		{
+			"{ x | name : String, age : Int }",
+			Record(
+				VarType("x"),
+				RecordField("name", NamedType("String")),
+				RecordField("age", NamedType("Int")),
 			),
 		},
 		// TODO(erizocosmico): improve this tests cases and relieve pressure

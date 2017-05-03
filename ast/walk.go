@@ -151,6 +151,10 @@ func Walk(v Visitor, node Node) {
 		Walk(v, node.Return)
 
 	case *RecordType:
+		if node.Extended != nil {
+			Walk(v, node.Extended)
+		}
+
 		for _, f := range node.Fields {
 			Walk(v, f)
 		}

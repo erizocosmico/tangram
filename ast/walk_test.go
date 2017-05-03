@@ -136,6 +136,21 @@ var testFile = &Module{
 			),
 		),
 
+		// type alias Named x = { x | name : String }
+		mkAliasDecl(
+			mkIdent("Named"),
+			[]*Ident{
+				mkIdent("x"),
+			},
+			mkRecordType(
+				mkVarType(mkIdent("x")),
+				mkRecordField(
+					mkIdent("name"),
+					mkNamedType(mkIdent("String")),
+				),
+			),
+		),
+
 		// type UnionT a b = Foo (List a)
 		//                 | Bar { x: b, y : b }
 		//                 | Baz
@@ -155,6 +170,7 @@ var testFile = &Module{
 			mkConstructor(
 				mkIdent("Bar"),
 				mkRecordType(
+					nil,
 					mkRecordField(
 						mkIdent("x"),
 						mkVarType(mkIdent("b")),
@@ -474,9 +490,9 @@ func mkFuncType(args []Type, returnType Type) *FuncType {
 	return &FuncType{Args: args, Return: returnType}
 }
 
-func mkRecordType(fields ...*RecordField) *RecordType {
+func mkRecordType(extended *VarType, fields ...*RecordField) *RecordType {
 	inc("*ast.RecordType")
-	return &RecordType{Fields: fields}
+	return &RecordType{Extended: extended, Fields: fields}
 }
 
 func mkRecordField(name *Ident, typ Type) *RecordField {

@@ -1,6 +1,8 @@
 package ast
 
-import "github.com/elm-tangram/tangram/token"
+import (
+	"github.com/elm-tangram/tangram/token"
+)
 
 // Type is a node representing a type.
 type Type interface {
@@ -54,6 +56,10 @@ type RecordType struct {
 	Rbrace token.Pos
 	// Fields contains the list of fields and their types in the record.
 	Fields []*RecordField
+	// Extended is an optional variable type from which the type extends.
+	Extended *VarType
+	// Pipe is the optional position of the pipe token if Extended is not nil.
+	Pipe token.Pos
 }
 
 func (RecordType) isType()           {}

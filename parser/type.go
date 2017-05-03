@@ -111,6 +111,11 @@ func parseRecordType(p *parser) *ast.RecordType {
 		Lbrace: p.expect(token.LeftBrace),
 	}
 
+	if p.peek().Type == token.Pipe {
+		t.Extended = &ast.VarType{parseLowerName(p)}
+		t.Pipe = p.expect(token.Pipe)
+	}
+
 	for !p.is(token.RightBrace) && !p.is(token.EOF) {
 		if len(t.Fields) > 0 {
 			p.expect(token.Comma)
