@@ -2,7 +2,7 @@
 
 [![Build Status](https://travis-ci.org/elm-tangram/tangram.svg?branch=master)](https://travis-ci.org/elm-tangram/tangram) [![Test Coverage](https://codecov.io/github/elm-tangram/tangram/coverage.svg?branch=master)](https://codecov.io/gh/elm-tangram/tangram/branch/master) [![Go Report Card](https://goreportcard.com/badge/github.com/elm-tangram/tangram)](https://goreportcard.com/report/github.com/elm-tangram/tangram)
 
-`tangram` is an effort to bring the Elm language to the backend. It uses [Go](http://golang.org) as the host language, which comes for free with very nice features such as the always-improving garbage collector, static binaries, cross compilation, and a large ecosystem amongst other things.
+`tangram` is an effort to bring the [Elm](http://elm-lang.org) language to the backend. It uses [Go](http://golang.org) as the host language, which comes for free with very nice features such as the always-improving garbage collector, static binaries, cross compilation, and a large ecosystem amongst other things.
 
 ### Goals
 
@@ -34,4 +34,5 @@ You can take a look at the roadmap and if there's some part you want to work on 
 ### License
 
 **tangram** is licensed under the MIT license, see [LICENSE](/LICENSE)
+
 **tangram** is **not** official or related to the `elm-lang` team in any way.
