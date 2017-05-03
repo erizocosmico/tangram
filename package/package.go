@@ -13,6 +13,7 @@ import (
 const (
 	pkgFile       = "elm-package.json"
 	ext           = ".elm"
+	nativeExt     = ".go"
 	elmStuffDir   = "elm-stuff"
 	packagesDir   = "packages"
 	exactDepsFile = "exact-dependencies.json"
@@ -35,6 +36,7 @@ var (
 // This contains all the package information useful for the compiler, including
 // its dependencies, etc.
 type Package struct {
+	Repository        string            `json:"repository"`
 	Version           Version           `json:"version"`
 	SourceDirectories []string          `json:"source-directories"`
 	NativeModules     bool              `json:"native-modules"`
@@ -161,7 +163,11 @@ func (p *Package) findModuleInDir(pathParts []string, dir string) (string, error
 	var path = filepath.Join(p.root, dir)
 	for i, p := range pathParts {
 		if i+1 == len(pathParts) {
-			p = p + ext
+			var fileExt = ext
+			if pathParts[0] == "Native" {
+				fileExt = nativeExt
+			}
+			p = p + fileExt
 		}
 		path = filepath.Join(path, p)
 
@@ -227,6 +233,9 @@ func findPackageFile(path string, recursive bool) (io.ReadCloser, string, error)
 	file := filepath.Join(path, pkgFile)
 	f, err := os.Open(file)
 	if os.IsNotExist(err) && recursive {
+		if path == filepath.Dir(path) {
+			return nil, "", nil
+		}
 		return findPackageFile(filepath.Dir(path), true)
 	}
 

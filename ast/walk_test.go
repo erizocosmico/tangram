@@ -40,35 +40,21 @@ func TestWalk(t *testing.T) {
 }
 
 var expectedVisits = map[string]int{
-	"*ast.File": 1,
+	"*ast.Module": 1,
 }
 
 func inc(name string) {
 	expectedVisits[name]++
 }
 
-var testFile = &File{
-	// module Foo.Bar exposing (foo, Foo(A))
+var testFile = &Module{
+	// module Foo.Bar exposing (..)
 	Module: mkModuleDecl(
 		mkSelectorExpr(
 			mkIdent("Foo"),
 			mkIdent("Bar"),
 		),
-		mkExposingList(
-			mkExposedIdent(
-				mkIdent("foo"),
-				nil,
-			),
-			mkExposedIdent(
-				mkIdent("Foo"),
-				mkExposingList(
-					mkExposedIdent(
-						mkIdent("A"),
-						nil,
-					),
-				),
-			),
-		),
+		mkOpenList(),
 	),
 
 	Imports: []*ImportDecl{
@@ -82,14 +68,48 @@ var testFile = &File{
 			nil,
 		),
 
-		// import Qux exposing (qux)
+		// import Qux exposing (qux, bar)
 		mkImportDecl(
 			mkIdent("Qux"),
 			nil,
-			mkExposingList(
-				mkExposedIdent(
-					mkIdent("qux"),
-					nil,
+			mkClosedList(
+				mkExposedVar(mkIdent("qux")),
+				mkExposedVar(mkIdent("bar")),
+			),
+		),
+
+		// import Qux exposing (..)
+		mkImportDecl(
+			mkIdent("Qux"),
+			nil,
+			mkOpenList(),
+		),
+
+		// import Qux exposing (qux, Foo(..))
+		mkImportDecl(
+			mkIdent("Qux"),
+			nil,
+			mkClosedList(
+				mkExposedVar(mkIdent("qux")),
+				mkExposedUnion(
+					mkIdent("Foo"),
+					mkOpenList(),
+				),
+			),
+		),
+
+		// import Qux exposing (qux, Foo(A, B))
+		mkImportDecl(
+			mkIdent("Qux"),
+			nil,
+			mkClosedList(
+				mkExposedVar(mkIdent("qux")),
+				mkExposedUnion(
+					mkIdent("Foo"),
+					mkClosedList(
+						mkExposedVar(mkIdent("A")),
+						mkExposedVar(mkIdent("B")),
+					),
 				),
 			),
 		),
@@ -111,8 +131,8 @@ var testFile = &File{
 				mkIdent("b"),
 			},
 			mkTupleType(
-				mkBasicType(mkIdent("a")),
-				mkBasicType(mkIdent("b")),
+				mkVarType(mkIdent("a")),
+				mkVarType(mkIdent("b")),
 			),
 		),
 
@@ -127,9 +147,9 @@ var testFile = &File{
 			},
 			mkConstructor(
 				mkIdent("Foo"),
-				mkBasicType(
+				mkNamedType(
 					mkIdent("List"),
-					mkBasicType(mkIdent("a")),
+					mkVarType(mkIdent("a")),
 				),
 			),
 			mkConstructor(
@@ -137,11 +157,11 @@ var testFile = &File{
 				mkRecordType(
 					mkRecordField(
 						mkIdent("x"),
-						mkBasicType(mkIdent("b")),
+						mkVarType(mkIdent("b")),
 					),
 					mkRecordField(
 						mkIdent("y"),
-						mkBasicType(mkIdent("b")),
+						mkVarType(mkIdent("b")),
 					),
 				),
 			),
@@ -197,10 +217,10 @@ var testFile = &File{
 				mkIdent("sum"),
 				mkFuncType(
 					[]Type{
-						mkBasicType(mkIdent("Int")),
-						mkBasicType(mkIdent("Int")),
+						mkNamedType(mkIdent("Int")),
+						mkNamedType(mkIdent("Int")),
 					},
-					mkBasicType(mkIdent("Int")),
+					mkNamedType(mkIdent("Int")),
 				),
 			),
 			mkIdent("sum"),
@@ -359,22 +379,32 @@ func mkIdent(name string) *Ident {
 	return NewIdent(name, new(token.Position))
 }
 
-func mkModuleDecl(name Expr, exposing *ExposingList) *ModuleDecl {
+func mkModuleDecl(name Expr, exposing ExposedList) *ModuleDecl {
 	inc("*ast.ModuleDecl")
 	return &ModuleDecl{Name: name, Exposing: exposing}
 }
 
-func mkExposingList(idents ...*ExposedIdent) *ExposingList {
-	inc("*ast.ExposingList")
-	return &ExposingList{Idents: idents}
+func mkClosedList(idents ...ExposedIdent) *ClosedList {
+	inc("*ast.ClosedList")
+	return &ClosedList{Exposed: idents}
 }
 
-func mkExposedIdent(name *Ident, exposing *ExposingList) *ExposedIdent {
-	inc("*ast.ExposedIdent")
-	return &ExposedIdent{Ident: name, Exposing: exposing}
+func mkOpenList() *OpenList {
+	inc("*ast.OpenList")
+	return new(OpenList)
 }
 
-func mkImportDecl(module Expr, alias *Ident, exposing *ExposingList) *ImportDecl {
+func mkExposedVar(name *Ident) *ExposedVar {
+	inc("*ast.ExposedVar")
+	return &ExposedVar{Ident: name}
+}
+
+func mkExposedUnion(typ *Ident, ctors ExposedList) *ExposedUnion {
+	inc("*ast.ExposedUnion")
+	return &ExposedUnion{Type: typ, Ctors: ctors}
+}
+
+func mkImportDecl(module Expr, alias *Ident, exposing ExposedList) *ImportDecl {
 	inc("*ast.ImportDecl")
 	return &ImportDecl{Module: module, Alias: alias, Exposing: exposing}
 }
@@ -401,7 +431,7 @@ func mkAliasDecl(name *Ident, args []*Ident, typ Type) *AliasDecl {
 
 func mkUnionDecl(name *Ident, args []*Ident, types ...*Constructor) *UnionDecl {
 	inc("*ast.UnionDecl")
-	return &UnionDecl{Name: name, Args: args, Types: types}
+	return &UnionDecl{Name: name, Args: args, Ctors: types}
 }
 
 func mkConstructor(name *Ident, args ...Type) *Constructor {
@@ -429,9 +459,14 @@ func mkTupleType(elems ...Type) *TupleType {
 	return &TupleType{Elems: elems}
 }
 
-func mkBasicType(name Expr, args ...Type) *BasicType {
-	inc("*ast.BasicType")
-	return &BasicType{Name: name, Args: args}
+func mkNamedType(name Expr, args ...Type) *NamedType {
+	inc("*ast.NamedType")
+	return &NamedType{Name: name, Args: args}
+}
+
+func mkVarType(name *Ident) *VarType {
+	inc("*ast.VarType")
+	return &VarType{name}
 }
 
 func mkFuncType(args []Type, returnType Type) *FuncType {
@@ -476,17 +511,17 @@ func mkCtorPattern(ctor *Ident, patterns ...Pattern) *CtorPattern {
 
 func mkTuplePattern(patterns ...Pattern) *TuplePattern {
 	inc("*ast.TuplePattern")
-	return &TuplePattern{Patterns: patterns}
+	return &TuplePattern{Elems: patterns}
 }
 
 func mkRecordPattern(patterns ...Pattern) *RecordPattern {
 	inc("*ast.RecordPattern")
-	return &RecordPattern{Patterns: patterns}
+	return &RecordPattern{Fields: patterns}
 }
 
 func mkListPattern(patterns ...Pattern) *ListPattern {
 	inc("*ast.ListPattern")
-	return &ListPattern{Patterns: patterns}
+	return &ListPattern{Elems: patterns}
 }
 
 func mkTupleLit(elems ...Expr) *TupleLit {

@@ -20,11 +20,13 @@ type Ident struct {
 	NamePos *token.Position
 	// Name of the identifier.
 	Name string
+	// Obj is the object this identifier refers to.
+	Obj *Object
 }
 
 // NewIdent creates a new identifier with the given name and position.
 func NewIdent(name string, pos *token.Position) *Ident {
-	return &Ident{pos, name}
+	return &Ident{pos, name, nil}
 }
 
 func (i *Ident) Pos() token.Pos { return i.NamePos.Offset }

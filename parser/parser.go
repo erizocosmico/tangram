@@ -2,15 +2,88 @@ package parser
 
 import (
 	"fmt"
+	"path/filepath"
 	"unicode"
 	"unicode/utf8"
 
 	"github.com/erizocosmico/elmo/ast"
-	"github.com/erizocosmico/elmo/diagnostic"
 	"github.com/erizocosmico/elmo/operator"
+	"github.com/erizocosmico/elmo/package"
+	"github.com/erizocosmico/elmo/report"
 	"github.com/erizocosmico/elmo/scanner"
 	"github.com/erizocosmico/elmo/token"
 )
+
+// defaultPos is a placeholder for a position of non-existent nodes in the
+// source code.
+var defaultPos = &token.Position{
+	Source: "builtin",
+	Offset: token.NoPos,
+}
+
+// defaultImports are the default imports included in every single Elm file.
+var defaultImports = []*ast.ImportDecl{
+	// import Basics exposing (..)
+	&ast.ImportDecl{
+		Module:   ast.NewIdent("Basics", defaultPos),
+		Exposing: new(ast.OpenList),
+	},
+	// import List exposing ( (::) )
+	&ast.ImportDecl{
+		Module: ast.NewIdent("List", defaultPos),
+		Exposing: &ast.ClosedList{
+			Exposed: []ast.ExposedIdent{
+				&ast.ExposedVar{ast.NewIdent("::", defaultPos)},
+			},
+		},
+	},
+	// import Maybe exposing ( Maybe( Just, Nothing ) )
+	&ast.ImportDecl{
+		Module: ast.NewIdent("Maybe", defaultPos),
+		Exposing: &ast.ClosedList{
+			Exposed: []ast.ExposedIdent{
+				&ast.ExposedUnion{
+					Type: ast.NewIdent("Maybe", defaultPos),
+					Ctors: &ast.ClosedList{
+						Exposed: []ast.ExposedIdent{
+							&ast.ExposedVar{ast.NewIdent("Just", defaultPos)},
+							&ast.ExposedVar{ast.NewIdent("Nothing", defaultPos)},
+						},
+					},
+				},
+			},
+		},
+	},
+	// import Result exposing ( Result( Ok, Err ) )
+	&ast.ImportDecl{
+		Module: ast.NewIdent("Result", defaultPos),
+		Exposing: &ast.ClosedList{
+			Exposed: []ast.ExposedIdent{
+				&ast.ExposedUnion{
+					Type: ast.NewIdent("Result", defaultPos),
+					Ctors: &ast.ClosedList{
+						Exposed: []ast.ExposedIdent{
+							&ast.ExposedVar{ast.NewIdent("Ok", defaultPos)},
+							&ast.ExposedVar{ast.NewIdent("Err", defaultPos)},
+						},
+					},
+				},
+			},
+		},
+	},
+	// import String
+	&ast.ImportDecl{
+		Module: ast.NewIdent("String", defaultPos),
+	},
+	// import Tuple
+	&ast.ImportDecl{
+		Module: ast.NewIdent("Tuple", defaultPos),
+	},
+	// import Debug
+	&ast.ImportDecl{
+		Module: ast.NewIdent("Debug", defaultPos),
+	},
+}
 
 type parser struct {
 	sess     *Session
@@ -61,9 +134,14 @@ func (p *parser) init(fileName string, s *scanner.Scanner, mode ParseMode) {
 	p.next()
 }
 
-func parseFile(p *parser) *ast.File {
+func parseFile(p *parser) *ast.Module {
 	mod := parseModule(p)
-	imports := parseImports(p)
+	var imports []*ast.ImportDecl
+	if p.needsDefaultImports() {
+		imports = defaultImports
+	}
+
+	imports = append(imports, parseImports(p)...)
 	if p.mode.Is(SkipDefinitions) {
 		p.skipUntilNextFixity()
 	}
@@ -73,8 +151,9 @@ func parseFile(p *parser) *ast.File {
 		decls = append(decls, parseDecl(p))
 	}
 
-	return &ast.File{
-		Name:    p.fileName,
+	return &ast.Module{
+		Path:    p.fileName,
+		Name:    mod.ModuleName(),
 		Module:  mod,
 		Imports: imports,
 		Decls:   decls,
@@ -253,6 +332,23 @@ func (p *parser) opInfo(name string) *operator.OpInfo {
 	}
 }
 
+func (p *parser) needsDefaultImports() bool {
+	pkg, err := pkg.Load(filepath.Dir(p.fileName))
+	if err != nil {
+		return false
+	}
+
+	_, ok := specialPackages[pkg.Repository]
+	return !ok
+}
+
+var specialPackages = map[string]struct{}{
+	"https://github.com/elm-lang/core.git":    struct{}{},
+	"http://github.com/elm-lang/core.git":     struct{}{},
+	"https://github.com/elm-tangram/core.git": struct{}{},
+	"http://github.com/elm-tangram/core.git":  struct{}{},
+}
+
 func (p *parser) checkAligned() bool {
 	return p.indent == p.currentIndent
 }
@@ -280,38 +376,9 @@ func (p *parser) regionStart() *token.Position {
 	return p.region
 }
 
-func (p *parser) getRegion(start *token.Position) []string {
-	region, err := p.sess.
-		Source(p.fileName).
-		Region(
-			start.Offset,
-			p.tok.Offset+token.Pos(len(p.tok.Source)),
-		)
-	if err != nil {
-		panic(fmt.Errorf("unexpected error: %s", err))
-	}
-
-	return region
-}
-
-func (p *parser) regionError(pos *token.Position, msg diagnostic.Msg) {
-	if p.silent {
-		return
-	}
-
-	start := p.regionStart()
-	p.sess.Diagnose(p.fileName, diagnostic.NewRegionDiagnostic(
-		diagnostic.Error,
-		msg,
-		start,
-		pos,
-		p.getRegion(start),
-	))
-}
-
 func (p *parser) errorExpected(t *token.Token, typ token.Type) {
 	if t.Type == token.EOF {
-		p.regionError(t.Position, diagnostic.UnexpectedEOF(typ))
+		p.errorUnexpectedEOF()
 		panic(bailout{})
 	}
 
@@ -319,21 +386,34 @@ func (p *parser) errorExpected(t *token.Token, typ token.Type) {
 }
 
 func (p *parser) errorExpectedOneOf(t *token.Token, types ...token.Type) {
-	p.regionError(t.Position, diagnostic.Expecting(t.Type, types...))
-}
-
-func (p *parser) errorMessage(pos *token.Position, msg string, args ...interface{}) {
-	p.regionError(pos, diagnostic.ParseError(fmt.Sprintf(msg, args...)))
+	p.report(report.NewUnexpectedTokenError(t, p.currentRegion(), types...))
 }
 
 func (p *parser) errorUnexpectedEOF() {
-	p.errorMessage(p.tok.Position, "Unexpected end of file.")
+	p.report(report.NewUnexpectedEOFError(p.tok.Offset, p.currentRegion()))
 	panic(bailout{})
 }
 
 func (p *parser) errorExpectedType(pos *token.Position) {
-	p.errorMessage(pos, "I was expecting a type, but I encountered what looks like a declaration instead.")
+	p.report(report.NewExpectedTypeError(pos.Offset, p.currentRegion()))
 	panic(bailout{})
+}
+
+func (p *parser) errorMessage(pos *token.Position, msg string, args ...interface{}) {
+	p.report(report.NewBaseReport(report.SyntaxError, pos.Offset, fmt.Sprintf(msg, args...), p.currentRegion()))
+}
+
+func (p *parser) currentRegion() *report.Region {
+	start := p.regionStart()
+	return &report.Region{start.Offset, p.tok.Offset + token.Pos(len(p.tok.Value))}
+}
+
+func (p *parser) report(report report.Report) {
+	if p.silent {
+		return
+	}
+
+	p.sess.Report(p.fileName, report)
 }
 
 func isLower(name string) bool {

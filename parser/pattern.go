@@ -88,10 +88,10 @@ func parseListPattern(p *parser) ast.Pattern {
 	}
 
 	pat := &ast.ListPattern{Lbracket: lbracketPos}
-	pat.Patterns = []ast.Pattern{parsePattern(p, true)}
+	pat.Elems = []ast.Pattern{parsePattern(p, true)}
 	for !p.is(token.RightBracket) {
 		p.expect(token.Comma)
-		pat.Patterns = append(pat.Patterns, parsePattern(p, true))
+		pat.Elems = append(pat.Elems, parsePattern(p, true))
 	}
 
 	pat.Rbracket = p.expect(token.RightBracket)
@@ -106,7 +106,7 @@ func parseCtorListPattern(p *parser, pat ast.Pattern) ast.Pattern {
 			Name:    "::",
 			NamePos: pos,
 		},
-		Patterns: []ast.Pattern{
+		Args: []ast.Pattern{
 			pat,
 			parsePattern(p, false),
 		},
@@ -128,9 +128,9 @@ func parseTupleOrParenthesizedPattern(p *parser) ast.Pattern {
 	rparenPos := p.expect(token.RightParen)
 	if len(patterns) > 1 {
 		return &ast.TuplePattern{
-			Lparen:   lparenPos,
-			Patterns: patterns,
-			Rparen:   rparenPos,
+			Lparen: lparenPos,
+			Elems:  patterns,
+			Rparen: rparenPos,
 		}
 	}
 	return patterns[0]
@@ -149,14 +149,14 @@ func parseRecordPattern(p *parser) ast.Pattern {
 	}
 
 	return &ast.RecordPattern{
-		Lbrace:   lbracePos,
-		Patterns: patterns,
-		Rbrace:   p.expect(token.RightBrace),
+		Lbrace: lbracePos,
+		Fields: patterns,
+		Rbrace: p.expect(token.RightBrace),
 	}
 }
 
 func parseCtorPattern(p *parser) ast.Pattern {
-	pat := &ast.CtorPattern{Ctor: parseUpperName(p)}
+	pat := &ast.CtorPattern{Ctor: parseUpperQualifiedIdentifier(p)}
 	var patterns []ast.Pattern
 
 Outer:
@@ -169,7 +169,7 @@ Outer:
 		}
 	}
 
-	pat.Patterns = patterns
+	pat.Args = patterns
 	return pat
 }
 

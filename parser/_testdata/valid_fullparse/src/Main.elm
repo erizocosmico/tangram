@@ -4,6 +4,6 @@ import Internal.Dependency exposing (maybeStr)
 import Dependency exposing ((?), (?:))
 
 
-main : Program String
+main : String
 main = 
     maybeStr ? "hello" ?: "hello world"

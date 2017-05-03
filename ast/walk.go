@@ -42,7 +42,7 @@ func Walk(v Visitor, node Node) {
 	}
 
 	switch node := node.(type) {
-	case *File:
+	case *Module:
 		if node.Module != nil {
 			Walk(v, node.Module)
 		}
@@ -70,16 +70,20 @@ func Walk(v Visitor, node Node) {
 			Walk(v, node.Exposing)
 		}
 
-	case *ExposingList:
-		for _, ident := range node.Idents {
+	case *ClosedList:
+		for _, ident := range node.Exposed {
 			Walk(v, ident)
 		}
 
-	case *ExposedIdent:
+	case *OpenList:
+		// do nothing
+
+	case *ExposedVar:
 		Walk(v, node.Ident)
-		if node.Exposing != nil {
-			Walk(v, node.Exposing)
-		}
+
+	case *ExposedUnion:
+		Walk(v, node.Type)
+		Walk(v, node.Ctors)
 
 	case *InfixDecl:
 		Walk(v, node.Op)
@@ -99,7 +103,7 @@ func Walk(v Visitor, node Node) {
 			Walk(v, a)
 		}
 
-		for _, t := range node.Types {
+		for _, t := range node.Ctors {
 			Walk(v, t)
 		}
 
@@ -130,11 +134,14 @@ func Walk(v Visitor, node Node) {
 		Walk(v, node.Type)
 
 	// Types
-	case *BasicType:
+	case *NamedType:
 		Walk(v, node.Name)
 		for _, a := range node.Args {
 			Walk(v, a)
 		}
+
+	case *VarType:
+		Walk(v, node.Ident)
 
 	case *FuncType:
 		for _, a := range node.Args {
@@ -173,18 +180,18 @@ func Walk(v Visitor, node Node) {
 
 	case *CtorPattern:
 		Walk(v, node.Ctor)
-		for _, p := range node.Patterns {
+		for _, p := range node.Args {
 			Walk(v, p)
 		}
 
 	case *TuplePattern:
-		walkPatterns(v, node.Patterns)
+		walkPatterns(v, node.Elems)
 
 	case *RecordPattern:
-		walkPatterns(v, node.Patterns)
+		walkPatterns(v, node.Fields)
 
 	case *ListPattern:
-		walkPatterns(v, node.Patterns)
+		walkPatterns(v, node.Elems)
 
 	// Exprs
 	case *Ident, *BasicLit:

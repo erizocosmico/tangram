@@ -73,17 +73,17 @@ func (AliasPattern) isArgPattern()    {}
 // constructor has arguments, it can have more patterns for them.
 type CtorPattern struct {
 	// Ctor is the name of the constructor.
-	Ctor *Ident
-	// Patterns for the constructor arguments.
-	Patterns []Pattern
+	Ctor Expr
+	// Args for the constructor arguments.
+	Args []Pattern
 }
 
 func (p CtorPattern) Pos() token.Pos { return p.Ctor.Pos() }
 func (p CtorPattern) End() token.Pos {
-	if len(p.Patterns) == 0 {
+	if len(p.Args) == 0 {
 		return p.Ctor.End()
 	}
-	return p.Patterns[len(p.Patterns)-1].End()
+	return p.Args[len(p.Args)-1].End()
 }
 func (CtorPattern) isPattern() {}
 
@@ -93,8 +93,8 @@ type TuplePattern struct {
 	Lparen token.Pos
 	// Rparen is the position of the closing parenthesis.
 	Rparen token.Pos
-	// Patterns for the elements of the tuple.
-	Patterns []Pattern
+	// Elems for the elements of the tuple.
+	Elems []Pattern
 }
 
 func (p TuplePattern) Pos() token.Pos { return p.Lparen }
@@ -108,8 +108,8 @@ type RecordPattern struct {
 	Lbrace token.Pos
 	// Rbrace is the position of the closing brace.
 	Rbrace token.Pos
-	// Patterns for the fields in the record.
-	Patterns []Pattern
+	// Fields for the fields in the record.
+	Fields []Pattern
 }
 
 func (p RecordPattern) Pos() token.Pos { return p.Lbrace }
@@ -123,8 +123,8 @@ type ListPattern struct {
 	Lbracket token.Pos
 	// Rbracket is the position of the closing bracket.
 	Rbracket token.Pos
-	// Pattern for the elements in the list.
-	Patterns []Pattern
+	// Elems are the patterns for the elements in the list.
+	Elems []Pattern
 }
 
 func (p ListPattern) Pos() token.Pos { return p.Lbracket }
