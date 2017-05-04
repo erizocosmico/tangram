@@ -5,15 +5,15 @@ import "fmt"
 // Table is the implementation of an operator table. It contains the operators
 // and their info.
 type Table struct {
-	ops      map[Op]*OpInfo
-	builtins map[string]struct{}
+	ops         map[Op]*OpInfo
+	opsByModule map[string]map[string]string
 }
 
 // NewTable creates a new empty operator table.
 func NewTable() *Table {
 	return &Table{
-		ops:      make(map[Op]*OpInfo),
-		builtins: make(map[string]struct{}),
+		ops:         make(map[Op]*OpInfo),
+		opsByModule: make(map[string]map[string]string),
 	}
 }
 
@@ -24,7 +24,7 @@ func NewTable() *Table {
 func BuiltinTable() *Table {
 	t := NewTable()
 	for _, op := range builtinOps {
-		t.AddBuiltin(op.name, op.assoc, op.prec)
+		t.Add(op.name, "Basics", op.assoc, op.prec)
 	}
 	return t
 }
@@ -60,57 +60,46 @@ var builtinOps = []struct {
 // Add inserts the given operator and its data in the operator table. It
 // returns an error if the operator is a builtin or has already been defined.
 func (t *Table) Add(name, path string, assoc Associativity, precedence uint) error {
-	if t.IsBuiltin(name) {
-		return fmt.Errorf("operator %s is a builtin operator and can not be overriden", name)
-	}
-
 	if _, ok := t.ops[Op{name, path}]; ok {
 		return fmt.Errorf("operator %s is already defined somewhere else", name)
 	}
 
-	t.ops[Op{name, path}] = &OpInfo{assoc, precedence, false}
+	t.ops[Op{name, path}] = &OpInfo{assoc, precedence}
 	return nil
 }
 
-// LookupByName returns the list of possible operators with the given name.
-func (t *Table) LookupByName(name string) []Op {
-	var result []Op
-	for op := range t.ops {
-		if op.Name == name {
-			result = append(result, op)
-		}
+// AddToModule adds an operator as available in the given `module`.
+func (t *Table) AddToModule(module, opModule, opName string) {
+	if _, ok := t.opsByModule[module]; !ok {
+		t.opsByModule[module] = make(map[string]string)
 	}
-	return result
+
+	t.opsByModule[module][opName] = opModule
 }
 
-// Lookup finds a specific operator and returns its info. Will return nil if
+// lookup finds a specific operator and returns its info. Will return nil if
 // the operator does not exist.
-func (t *Table) Lookup(name, path string) *OpInfo {
+func (t *Table) lookup(name, path string) *OpInfo {
 	return t.ops[Op{name, path}]
 }
 
-// IsBuiltin reports whether the operator with the given name is a builtin.
-func (t *Table) IsBuiltin(name string) bool {
-	_, ok := t.builtins[name]
-	return ok
-}
-
-// AddBuiltin adds a new builtin operator to the operator table.
-func (t *Table) AddBuiltin(name string, assoc Associativity, precedence uint) error {
-	if len(t.LookupByName(name)) > 0 {
-		return fmt.Errorf("cannot add builtin operator %s, is already defined", name)
+// Lookup finds an operator that is available (imported or defined) in the current module.
+func (t *Table) Lookup(name string, currentModule string) *OpInfo {
+	if ops, ok := t.opsByModule[currentModule]; ok {
+		if mod, ok := ops[name]; ok {
+			return t.lookup(name, mod)
+		}
 	}
-	t.builtins[name] = struct{}{}
-	t.ops[Op{name, ""}] = &OpInfo{assoc, precedence, true}
+
 	return nil
 }
 
-// Op represents a qualified operator with its path.
+// Op represents a qualified operator with the module where it was defined.
 type Op struct {
 	// Name of the operator.
 	Name string
-	// Path of the operator.
-	Path string
+	// Module of the operator.
+	Module string
 }
 
 // OpInfo contains the info about an operator.
@@ -119,8 +108,6 @@ type OpInfo struct {
 	Associativity Associativity
 	// Precedence of the operator.
 	Precedence uint
-	// Builtin will be true if the op is a builtin.
-	Builtin bool
 }
 
 // Associativity is the type of associativity of the operator.

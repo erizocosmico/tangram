@@ -110,6 +110,8 @@ type parser struct {
 	// avoid errors when there might be a backup parsing or when we're skipping
 	// tokens.
 	silent bool
+	// modName is the name of the current module being parsed.
+	modName string
 }
 
 func newParser(sess *Session) *parser {
@@ -130,12 +132,14 @@ func (p *parser) init(fileName string, s *scanner.Scanner, mode ParseMode) {
 	p.currentIndent = 1
 	p.silent = false
 	p.expectIndented = false
+	p.modName = ""
 
 	p.next()
 }
 
 func parseFile(p *parser) *ast.Module {
 	mod := parseModule(p)
+	p.modName = mod.ModuleName()
 	var imports []*ast.ImportDecl
 	if p.needsDefaultImports() {
 		imports = defaultImports
@@ -321,7 +325,7 @@ func (p *parser) is(typ token.Type) bool {
 }
 
 func (p *parser) opInfo(name string) *operator.OpInfo {
-	info := p.sess.Table.Lookup(name, "" /* TODO: path */)
+	info := p.sess.Table.Lookup(name, p.modName)
 	if info != nil {
 		return info
 	}
