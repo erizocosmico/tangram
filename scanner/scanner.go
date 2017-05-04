@@ -66,7 +66,7 @@ func New(source string, input io.Reader) *Scanner {
 	}
 }
 
-// next retu"Hello, playground"rns the next rune in the input or EOF if none left.
+// next returns the next rune in the input or EOF if none left.
 func (l *Scanner) next() (r rune, err error) {
 	r, l.width, err = l.reader.ReadRune()
 	l.pos += l.width
@@ -158,6 +158,33 @@ func (l *Scanner) acceptRun(valid string) error {
 			return nil
 		}
 	}
+}
+
+// peekN checks the next `n` runes are the given one.
+func (l *Scanner) peekN(valid rune, n int) (bool, error) {
+	v, err := l.reader.Peek(n)
+	if err != nil {
+		return false, err
+	}
+
+	for _, r := range string(v) {
+		if r != valid {
+			return false, err
+		}
+	}
+
+	return true, nil
+}
+
+// advance consumes the next n runes.
+func (l *Scanner) advance(n int) error {
+	for i := 0; i < n; i++ {
+		_, err := l.next()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Run runs the state machine for the scanner until the end of line or an
@@ -343,7 +370,7 @@ func lexExpr(l *Scanner) (stateFunc, error) {
 	case isSpace(r):
 		return lexSpaces, nil
 	case r == quote:
-		return lexQuote, nil
+		return lexString, nil
 	case isNumeric(r):
 		return lexNumber, nil
 	case r == leftParen:
@@ -612,16 +639,16 @@ func lexMultiLineComment(l *Scanner) (stateFunc, error) {
 	}
 }
 
-// lexInsideQuote scans the next rune and tells if there is an error
+// lexInsideString scans the next rune and tells if there is an error
 // or the scan needs to stop
-func lexInsideQuote(l *Scanner) (bool, error) {
+func lexInsideString(l *Scanner) (bool, error) {
 	r, err := l.next()
 	if err != nil {
 		return false, err
 	}
 
 	switch true {
-	case r == '\\':
+	case r == backslash:
 		rn, err := l.next()
 		if err != nil {
 			return false, err
@@ -639,16 +666,48 @@ func lexInsideQuote(l *Scanner) (bool, error) {
 	return false, nil
 }
 
-// lexQuote scans a quoted string. The first quote has already been scanned.
-func lexQuote(l *Scanner) (stateFunc, error) {
-	for {
-		stop, err := lexInsideQuote(l)
-		if err != nil {
-			return l.errorf("quoted string not closed properly: %q", l.peekWord()), nil
+// lexString scans a quoted string. The first quote has already been scanned.
+func lexString(l *Scanner) (stateFunc, error) {
+	ok, err := l.peekN(quote, 2)
+	if err != nil {
+		return nil, err
+	}
+
+	if ok {
+		if err := l.advance(2); err != nil {
+			return nil, err
 		}
 
-		if stop {
-			break
+		for {
+			r, err := l.next()
+			if err != nil {
+				return nil, err
+			}
+
+			if r == quote {
+				ok, err := l.peekN(quote, 2)
+				if err != nil {
+					return nil, err
+				}
+
+				if ok {
+					if err := l.advance(2); err != nil {
+						return nil, err
+					}
+					break
+				}
+			}
+		}
+	} else {
+		for {
+			stop, err := lexInsideString(l)
+			if err != nil {
+				return l.errorf("quoted string not closed properly: %q", l.peekWord()), nil
+			}
+
+			if stop {
+				break
+			}
 		}
 	}
 
