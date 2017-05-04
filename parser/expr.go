@@ -32,7 +32,7 @@ func parseTerm(p *parser) ast.Expr {
 			}
 		}
 
-		p.errorMessage(p.tok.Position, fmt.Sprintf("I ran into an unexpected operator %s. I was expecting an expression.", op.Name))
+		p.errorMessage(p.tok.Offset, fmt.Sprintf("I ran into an unexpected operator %s. I was expecting an expression.", op.Name))
 		panic(bailout{})
 	case token.Identifier:
 		return parseIdentTerm(p)
@@ -99,7 +99,7 @@ func parseIdentifier(p *parser) *ast.Ident {
 		p.expect(token.Identifier)
 	}
 
-	return ast.NewIdent(name, pos)
+	return ast.NewIdent(name, pos.Offset)
 }
 
 func parseLambda(p *parser) *ast.Lambda {
@@ -119,7 +119,7 @@ func parseLeftBrace(p *parser) ast.Expr {
 		pipe := p.expect(token.Pipe)
 		fields := parseRecordFields(p)
 		if len(fields) == 0 {
-			p.errorMessage(p.tok.Position, "I was expecting a list of record fields to update, but I got none.")
+			p.errorMessage(p.tok.Offset, "I was expecting a list of record fields to update, but I got none.")
 			return &ast.BadExpr{
 				StartPos: lbracePos,
 				EndPos:   p.expect(token.RightBrace),
@@ -215,7 +215,7 @@ func parseLeftBracket(p *parser) ast.Expr {
 	expr := parseExpr(p)
 	if p.is(token.Comma) && !p.is(token.EOF) {
 		if expr == nil {
-			p.errorMessage(p.tok.Position, "I found ',', but I was expecting ']', whitespace or an expression")
+			p.errorMessage(p.tok.Offset, "I found ',', but I was expecting ']', whitespace or an expression")
 			for !p.is(token.RightBracket) && !p.is(token.EOF) {
 				defer p.next()
 				return &ast.BadExpr{
@@ -281,7 +281,7 @@ func parseExpr(p *parser) ast.Expr {
 		defer p.endRegion(p.startRegion())
 		return parseLet(p)
 	case token.EOF:
-		p.errorMessage(p.tok.Position, "Unexpected EOF")
+		p.errorMessage(p.tok.Offset, "Unexpected EOF")
 		panic(bailout{})
 	}
 
@@ -348,7 +348,7 @@ func parseBinaryOp(p *parser, lhs ast.Expr, precedence uint) ast.Expr {
 
 		if opInfo.Associativity == operator.NonAssoc &&
 			opInfo.Precedence == prevOp.Precedence {
-			p.errorMessage(p.tok.Position, fmt.Sprintf(
+			p.errorMessage(p.tok.Offset, fmt.Sprintf(
 				errorMsgMultipleNonAssocOps,
 				p.tok.Value,
 				op.Name,
@@ -444,7 +444,7 @@ func parseCase(p *parser) *ast.CaseExpr {
 	}
 
 	if len(expr.Branches) == 0 {
-		p.errorMessage(firstBranchPos, "I was expecting a pattern.")
+		p.errorMessage(firstBranchPos.Offset, "I was expecting a pattern.")
 	}
 
 	return expr
@@ -495,7 +495,7 @@ func parseLiteral(p *parser) *ast.BasicLit {
 	p.next()
 	return &ast.BasicLit{
 		Type:     typ,
-		Position: t.Position,
+		Position: t.Offset,
 		Value:    t.Value,
 	}
 }

@@ -376,7 +376,7 @@ var testFile = &Module{
 
 func mkIdent(name string) *Ident {
 	inc("*ast.Ident")
-	return NewIdent(name, new(token.Position))
+	return NewIdent(name, token.NoPos)
 }
 
 func mkModuleDecl(name Expr, exposing ExposedList) *ModuleDecl {
@@ -416,7 +416,7 @@ func mkSelectorExpr(idents ...*Ident) *SelectorExpr {
 
 func mkBasicLit(kind BasicLitType, val string) *BasicLit {
 	inc("*ast.BasicLit")
-	return &BasicLit{Type: kind, Value: val, Position: new(token.Position)}
+	return &BasicLit{Type: kind, Value: val, Position: token.NoPos}
 }
 
 func mkInfixDecl(assoc operator.Associativity, op *Ident, prec *BasicLit) *InfixDecl {

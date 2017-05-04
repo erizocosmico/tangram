@@ -17,7 +17,7 @@ type Expr interface {
 // Ident represents an identifier, which is a name for something.
 type Ident struct {
 	// NamePos is the position of the name.
-	NamePos *token.Position
+	NamePos token.Pos
 	// Name of the identifier.
 	Name string
 	// Obj is the object this identifier refers to.
@@ -25,11 +25,11 @@ type Ident struct {
 }
 
 // NewIdent creates a new identifier with the given name and position.
-func NewIdent(name string, pos *token.Position) *Ident {
+func NewIdent(name string, pos token.Pos) *Ident {
 	return &Ident{pos, name, nil}
 }
 
-func (i *Ident) Pos() token.Pos { return i.NamePos.Offset }
+func (i *Ident) Pos() token.Pos { return i.NamePos }
 func (i *Ident) End() token.Pos { return i.Pos() + token.Pos(len(i.Name)) }
 func (*Ident) isExpr()          {}
 func (i *Ident) String() string { return i.Name }
@@ -93,14 +93,14 @@ func (e *SelectorExpr) String() string {
 // BasicLit represents a basic literal.
 type BasicLit struct {
 	// Position of the literal.
-	Position *token.Position
+	Position token.Pos
 	// Type of the literal.
 	Type BasicLitType
 	// Value of the literal.
 	Value string
 }
 
-func (b *BasicLit) Pos() token.Pos { return b.Position.Offset }
+func (b *BasicLit) Pos() token.Pos { return b.Position }
 func (b *BasicLit) End() token.Pos { return b.Pos() + token.Pos(len(b.Value)) }
 func (*BasicLit) isExpr()          {}
 

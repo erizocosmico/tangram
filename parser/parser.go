@@ -14,40 +14,33 @@ import (
 	"github.com/elm-tangram/tangram/token"
 )
 
-// defaultPos is a placeholder for a position of non-existent nodes in the
-// source code.
-var defaultPos = &token.Position{
-	Source: "builtin",
-	Offset: token.NoPos,
-}
-
 // defaultImports are the default imports included in every single Elm file.
 var defaultImports = []*ast.ImportDecl{
 	// import Basics exposing (..)
 	&ast.ImportDecl{
-		Module:   ast.NewIdent("Basics", defaultPos),
+		Module:   ast.NewIdent("Basics", token.NoPos),
 		Exposing: new(ast.OpenList),
 	},
 	// import List exposing ( (::) )
 	&ast.ImportDecl{
-		Module: ast.NewIdent("List", defaultPos),
+		Module: ast.NewIdent("List", token.NoPos),
 		Exposing: &ast.ClosedList{
 			Exposed: []ast.ExposedIdent{
-				&ast.ExposedVar{ast.NewIdent("::", defaultPos)},
+				&ast.ExposedVar{ast.NewIdent("::", token.NoPos)},
 			},
 		},
 	},
 	// import Maybe exposing ( Maybe( Just, Nothing ) )
 	&ast.ImportDecl{
-		Module: ast.NewIdent("Maybe", defaultPos),
+		Module: ast.NewIdent("Maybe", token.NoPos),
 		Exposing: &ast.ClosedList{
 			Exposed: []ast.ExposedIdent{
 				&ast.ExposedUnion{
-					Type: ast.NewIdent("Maybe", defaultPos),
+					Type: ast.NewIdent("Maybe", token.NoPos),
 					Ctors: &ast.ClosedList{
 						Exposed: []ast.ExposedIdent{
-							&ast.ExposedVar{ast.NewIdent("Just", defaultPos)},
-							&ast.ExposedVar{ast.NewIdent("Nothing", defaultPos)},
+							&ast.ExposedVar{ast.NewIdent("Just", token.NoPos)},
+							&ast.ExposedVar{ast.NewIdent("Nothing", token.NoPos)},
 						},
 					},
 				},
@@ -56,15 +49,15 @@ var defaultImports = []*ast.ImportDecl{
 	},
 	// import Result exposing ( Result( Ok, Err ) )
 	&ast.ImportDecl{
-		Module: ast.NewIdent("Result", defaultPos),
+		Module: ast.NewIdent("Result", token.NoPos),
 		Exposing: &ast.ClosedList{
 			Exposed: []ast.ExposedIdent{
 				&ast.ExposedUnion{
-					Type: ast.NewIdent("Result", defaultPos),
+					Type: ast.NewIdent("Result", token.NoPos),
 					Ctors: &ast.ClosedList{
 						Exposed: []ast.ExposedIdent{
-							&ast.ExposedVar{ast.NewIdent("Ok", defaultPos)},
-							&ast.ExposedVar{ast.NewIdent("Err", defaultPos)},
+							&ast.ExposedVar{ast.NewIdent("Ok", token.NoPos)},
+							&ast.ExposedVar{ast.NewIdent("Err", token.NoPos)},
 						},
 					},
 				},
@@ -73,15 +66,15 @@ var defaultImports = []*ast.ImportDecl{
 	},
 	// import String
 	&ast.ImportDecl{
-		Module: ast.NewIdent("String", defaultPos),
+		Module: ast.NewIdent("String", token.NoPos),
 	},
 	// import Tuple
 	&ast.ImportDecl{
-		Module: ast.NewIdent("Tuple", defaultPos),
+		Module: ast.NewIdent("Tuple", token.NoPos),
 	},
 	// import Debug
 	&ast.ImportDecl{
-		Module: ast.NewIdent("Debug", defaultPos),
+		Module: ast.NewIdent("Debug", token.NoPos),
 	},
 }
 
@@ -213,7 +206,7 @@ func parseOp(p *parser) *ast.Ident {
 		p.expect(token.Op)
 	}
 
-	return &ast.Ident{NamePos: pos, Name: name}
+	return &ast.Ident{NamePos: pos.Offset, Name: name}
 }
 
 func (p *parser) indentedBlock() func() {
@@ -244,9 +237,9 @@ func (p *parser) next() {
 	if p.tok != nil && !p.is(token.EOF) {
 		if p.expectIndented && p.indentLine != p.currentLine {
 			if p.tok.Column == 1 {
-				p.errorMessage(p.tok.Position, "I encountered what looks like a new declaration, but the previous one has not been finished yet.")
+				p.errorMessage(p.tok.Offset, "I encountered what looks like a new declaration, but the previous one has not been finished yet.")
 			} else if p.currentIndent <= p.indent {
-				p.errorMessage(p.tok.Position, "I was expecting whitespace.")
+				p.errorMessage(p.tok.Offset, "I was expecting whitespace.")
 			}
 		}
 	}
@@ -289,7 +282,7 @@ func (p *parser) expect(typ token.Type) token.Pos {
 func (p *parser) expectAfter(typ token.Type, node ast.Node) token.Pos {
 	pos := p.tok.Position
 	if pos.Offset != node.End() {
-		p.errorMessage(pos, "I was expecting %q right after the previous token, but I ran into whitespace.", typ)
+		p.errorMessage(pos.Offset, "I was expecting %q right after the previous token, but I ran into whitespace.", typ)
 	}
 	return p.expect(typ)
 }
@@ -298,7 +291,7 @@ func (p *parser) expectType() ast.Type {
 	pos := p.tok.Position
 	typ := parseType(p)
 	if typ == nil {
-		p.errorExpectedType(pos)
+		p.errorExpectedType(pos.Offset)
 	}
 	return typ
 }
@@ -398,13 +391,13 @@ func (p *parser) errorUnexpectedEOF() {
 	panic(bailout{})
 }
 
-func (p *parser) errorExpectedType(pos *token.Position) {
-	p.report(report.NewExpectedTypeError(pos.Offset, p.currentRegion()))
+func (p *parser) errorExpectedType(pos token.Pos) {
+	p.report(report.NewExpectedTypeError(pos, p.currentRegion()))
 	panic(bailout{})
 }
 
-func (p *parser) errorMessage(pos *token.Position, msg string, args ...interface{}) {
-	p.report(report.NewBaseReport(report.SyntaxError, pos.Offset, fmt.Sprintf(msg, args...), p.currentRegion()))
+func (p *parser) errorMessage(pos token.Pos, msg string, args ...interface{}) {
+	p.report(report.NewBaseReport(report.SyntaxError, pos, fmt.Sprintf(msg, args...), p.currentRegion()))
 }
 
 func (p *parser) currentRegion() *report.Region {

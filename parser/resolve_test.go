@@ -24,7 +24,7 @@ func TestResolvePattern(t *testing.T) {
 		require := require.New(t)
 		scope := newScope()
 		r.resolvePattern(scope, &ast.AliasPattern{
-			Name: ast.NewIdent("foo", nil),
+			Name: ast.NewIdent("foo", token.NoPos),
 			Pattern: &ast.LiteralPattern{
 				&ast.BasicLit{
 					Type:  ast.Int,
@@ -43,9 +43,9 @@ func TestResolvePattern(t *testing.T) {
 		require := require.New(t)
 		scope := newScope()
 		node := &ast.CtorPattern{
-			Ctor: ast.NewIdent("Just", nil),
+			Ctor: ast.NewIdent("Just", token.NoPos),
 			Args: []ast.Pattern{
-				&ast.VarPattern{ast.NewIdent("a", nil)},
+				&ast.VarPattern{ast.NewIdent("a", token.NoPos)},
 			},
 		}
 		r.resolvePattern(scope, node)
@@ -62,8 +62,8 @@ func TestResolvePattern(t *testing.T) {
 		scope := newScope()
 		node := &ast.TuplePattern{
 			Elems: []ast.Pattern{
-				&ast.VarPattern{ast.NewIdent("a", nil)},
-				&ast.VarPattern{ast.NewIdent("b", nil)},
+				&ast.VarPattern{ast.NewIdent("a", token.NoPos)},
+				&ast.VarPattern{ast.NewIdent("b", token.NoPos)},
 			},
 		}
 		r.resolvePattern(scope, node)
@@ -80,8 +80,8 @@ func TestResolvePattern(t *testing.T) {
 		scope := newScope()
 		node := &ast.ListPattern{
 			Elems: []ast.Pattern{
-				&ast.VarPattern{ast.NewIdent("a", nil)},
-				&ast.VarPattern{ast.NewIdent("b", nil)},
+				&ast.VarPattern{ast.NewIdent("a", token.NoPos)},
+				&ast.VarPattern{ast.NewIdent("b", token.NoPos)},
 			},
 		}
 		r.resolvePattern(scope, node)
@@ -98,8 +98,8 @@ func TestResolvePattern(t *testing.T) {
 		scope := newScope()
 		node := &ast.RecordPattern{
 			Fields: []ast.Pattern{
-				&ast.VarPattern{ast.NewIdent("a", nil)},
-				&ast.VarPattern{ast.NewIdent("b", nil)},
+				&ast.VarPattern{ast.NewIdent("a", token.NoPos)},
+				&ast.VarPattern{ast.NewIdent("b", token.NoPos)},
 				new(ast.AnythingPattern),
 			},
 		}
@@ -115,7 +115,7 @@ func TestResolvePattern(t *testing.T) {
 	t.Run("VarPattern", func(t *testing.T) {
 		require := require.New(t)
 		scope := newScope()
-		r.resolvePattern(scope, &ast.VarPattern{ast.NewIdent("a", nil)})
+		r.resolvePattern(scope, &ast.VarPattern{ast.NewIdent("a", token.NoPos)})
 
 		require.Len(scope.Objects, 1)
 		require.Len(scope.Unresolved, 0)
@@ -139,10 +139,10 @@ func TestResolveType(t *testing.T) {
 		scope := newScope()
 
 		node := &ast.NamedType{
-			Name: ast.NewIdent("Result", nil),
+			Name: ast.NewIdent("Result", token.NoPos),
 			Args: []ast.Type{
-				&ast.NamedType{Name: ast.NewIdent("String", nil)},
-				&ast.NamedType{Name: ast.NewIdent("Int", nil)},
+				&ast.NamedType{Name: ast.NewIdent("String", token.NoPos)},
+				&ast.NamedType{Name: ast.NewIdent("Int", token.NoPos)},
 			},
 		}
 		r.resolveType(scope, node)
@@ -159,7 +159,7 @@ func TestResolveType(t *testing.T) {
 		require := require.New(t)
 		scope := newScope()
 
-		node := &ast.VarType{ast.NewIdent("a", nil)}
+		node := &ast.VarType{ast.NewIdent("a", token.NoPos)}
 		r.resolveType(scope, node)
 
 		require.Len(scope.Objects, 0)
@@ -174,10 +174,10 @@ func TestResolveType(t *testing.T) {
 
 		node := &ast.FuncType{
 			Args: []ast.Type{
-				&ast.NamedType{Name: ast.NewIdent("String", nil)},
-				&ast.NamedType{Name: ast.NewIdent("Int", nil)},
+				&ast.NamedType{Name: ast.NewIdent("String", token.NoPos)},
+				&ast.NamedType{Name: ast.NewIdent("Int", token.NoPos)},
 			},
-			Return: &ast.NamedType{Name: ast.NewIdent("Int", nil)},
+			Return: &ast.NamedType{Name: ast.NewIdent("Int", token.NoPos)},
 		}
 		r.resolveType(scope, node)
 
@@ -195,8 +195,8 @@ func TestResolveType(t *testing.T) {
 
 		node := &ast.TupleType{
 			Elems: []ast.Type{
-				&ast.NamedType{Name: ast.NewIdent("String", nil)},
-				&ast.NamedType{Name: ast.NewIdent("Int", nil)},
+				&ast.NamedType{Name: ast.NewIdent("String", token.NoPos)},
+				&ast.NamedType{Name: ast.NewIdent("Int", token.NoPos)},
 			},
 		}
 
@@ -216,12 +216,12 @@ func TestResolveType(t *testing.T) {
 		node := &ast.RecordType{
 			Fields: []*ast.RecordField{
 				{
-					Name: ast.NewIdent("x", nil),
-					Type: &ast.NamedType{Name: ast.NewIdent("Int", nil)},
+					Name: ast.NewIdent("x", token.NoPos),
+					Type: &ast.NamedType{Name: ast.NewIdent("Int", token.NoPos)},
 				},
 				{
-					Name: ast.NewIdent("y", nil),
-					Type: &ast.NamedType{Name: ast.NewIdent("Int", nil)},
+					Name: ast.NewIdent("y", token.NoPos),
+					Type: &ast.NamedType{Name: ast.NewIdent("Int", token.NoPos)},
 				},
 			},
 		}
@@ -243,12 +243,12 @@ func TestResolveType(t *testing.T) {
 		node := &ast.RecordType{
 			Fields: []*ast.RecordField{
 				{
-					Name: ast.NewIdent("x", new(token.Position)),
-					Type: &ast.NamedType{Name: ast.NewIdent("Int", nil)},
+					Name: ast.NewIdent("x", token.NoPos),
+					Type: &ast.NamedType{Name: ast.NewIdent("Int", token.NoPos)},
 				},
 				{
-					Name: ast.NewIdent("x", new(token.Position)),
-					Type: &ast.NamedType{Name: ast.NewIdent("Int", nil)},
+					Name: ast.NewIdent("x", token.NoPos),
+					Type: &ast.NamedType{Name: ast.NewIdent("Int", token.NoPos)},
 				},
 			},
 		}
@@ -279,14 +279,14 @@ func TestResolveDecl(t *testing.T) {
 		node := &ast.DestructuringAssignment{
 			Pattern: &ast.TuplePattern{
 				Elems: []ast.Pattern{
-					&ast.VarPattern{ast.NewIdent("a", nil)},
-					&ast.VarPattern{ast.NewIdent("b", nil)},
+					&ast.VarPattern{ast.NewIdent("a", token.NoPos)},
+					&ast.VarPattern{ast.NewIdent("b", token.NoPos)},
 				},
 			},
 			Expr: &ast.TupleLit{
 				Elems: []ast.Expr{
-					ast.NewIdent("c", nil),
-					ast.NewIdent("d", nil),
+					ast.NewIdent("c", token.NoPos),
+					ast.NewIdent("d", token.NoPos),
 				},
 			},
 		}
@@ -305,7 +305,7 @@ func TestResolveDecl(t *testing.T) {
 		require := require.New(t)
 		scope := newScope()
 		node := &ast.InfixDecl{
-			Op: ast.NewIdent("?", nil),
+			Op: ast.NewIdent("?", token.NoPos),
 		}
 		r.resolveDecl(scope, node)
 
@@ -322,18 +322,18 @@ func TestResolveDecl(t *testing.T) {
 			Annotation: &ast.TypeAnnotation{
 				Type: &ast.FuncType{
 					Args: []ast.Type{
-						&ast.NamedType{Name: ast.NewIdent("String", nil)},
-						&ast.NamedType{Name: ast.NewIdent("Int", nil)},
+						&ast.NamedType{Name: ast.NewIdent("String", token.NoPos)},
+						&ast.NamedType{Name: ast.NewIdent("Int", token.NoPos)},
 					},
-					Return: &ast.NamedType{Name: ast.NewIdent("String", nil)},
+					Return: &ast.NamedType{Name: ast.NewIdent("String", token.NoPos)},
 				},
 			},
-			Name: ast.NewIdent("formatNum", nil),
+			Name: ast.NewIdent("formatNum", token.NoPos),
 			Args: []ast.Pattern{
-				&ast.VarPattern{ast.NewIdent("format", nil)},
-				&ast.VarPattern{ast.NewIdent("n", nil)},
+				&ast.VarPattern{ast.NewIdent("format", token.NoPos)},
+				&ast.VarPattern{ast.NewIdent("n", token.NoPos)},
 			},
-			Body: ast.NewIdent("c", nil),
+			Body: ast.NewIdent("c", token.NoPos),
 		}
 		r.resolveDecl(scope, node)
 
@@ -359,16 +359,16 @@ func TestResolveDecl(t *testing.T) {
 		require := require.New(t)
 		scope := newScope()
 		node := &ast.AliasDecl{
-			Name: ast.NewIdent("FancyResult", nil),
+			Name: ast.NewIdent("FancyResult", token.NoPos),
 			Args: []*ast.Ident{
-				ast.NewIdent("a", nil),
-				ast.NewIdent("b", nil),
+				ast.NewIdent("a", token.NoPos),
+				ast.NewIdent("b", token.NoPos),
 			},
 			Type: &ast.NamedType{
-				Name: ast.NewIdent("Result", nil),
+				Name: ast.NewIdent("Result", token.NoPos),
 				Args: []ast.Type{
-					&ast.VarType{ast.NewIdent("a", nil)},
-					&ast.VarType{ast.NewIdent("b", nil)},
+					&ast.VarType{ast.NewIdent("a", token.NoPos)},
+					&ast.VarType{ast.NewIdent("b", token.NoPos)},
 				},
 			},
 		}
@@ -384,18 +384,17 @@ func TestResolveDecl(t *testing.T) {
 	t.Run("AliasDecl repeated var types", func(t *testing.T) {
 		require := require.New(t)
 		scope := newScope()
-		pos := new(token.Position)
 		node := &ast.AliasDecl{
-			Name: ast.NewIdent("FancyResult", pos),
+			Name: ast.NewIdent("FancyResult", token.NoPos),
 			Args: []*ast.Ident{
-				ast.NewIdent("a", pos),
-				ast.NewIdent("a", pos),
+				ast.NewIdent("a", token.NoPos),
+				ast.NewIdent("a", token.NoPos),
 			},
 			Type: &ast.NamedType{
-				Name: ast.NewIdent("Result", pos),
+				Name: ast.NewIdent("Result", token.NoPos),
 				Args: []ast.Type{
-					&ast.VarType{ast.NewIdent("a", pos)},
-					&ast.VarType{ast.NewIdent("a", pos)},
+					&ast.VarType{ast.NewIdent("a", token.NoPos)},
+					&ast.VarType{ast.NewIdent("a", token.NoPos)},
 				},
 			},
 		}
@@ -410,19 +409,19 @@ func TestResolveDecl(t *testing.T) {
 		require := require.New(t)
 		scope := newScope()
 		node := &ast.UnionDecl{
-			Name: ast.NewIdent("Maybe", nil),
+			Name: ast.NewIdent("Maybe", token.NoPos),
 			Args: []*ast.Ident{
-				ast.NewIdent("a", nil),
+				ast.NewIdent("a", token.NoPos),
 			},
 			Ctors: []*ast.Constructor{
 				&ast.Constructor{
-					Name: ast.NewIdent("Just", nil),
+					Name: ast.NewIdent("Just", token.NoPos),
 					Args: []ast.Type{
-						&ast.VarType{ast.NewIdent("a", nil)},
+						&ast.VarType{ast.NewIdent("a", token.NoPos)},
 					},
 				},
 				&ast.Constructor{
-					Name: ast.NewIdent("Nothing", nil),
+					Name: ast.NewIdent("Nothing", token.NoPos),
 				},
 			},
 		}
@@ -441,16 +440,15 @@ func TestResolveDecl(t *testing.T) {
 		r := newTestResolver(t)
 		require := require.New(t)
 		scope := newScope()
-		pos := new(token.Position)
 		node := &ast.UnionDecl{
-			Name: ast.NewIdent("Result", pos),
+			Name: ast.NewIdent("Result", token.NoPos),
 			Args: []*ast.Ident{
-				ast.NewIdent("a", pos),
-				ast.NewIdent("a", pos),
+				ast.NewIdent("a", token.NoPos),
+				ast.NewIdent("a", token.NoPos),
 			},
 			Ctors: []*ast.Constructor{
 				&ast.Constructor{
-					Name: ast.NewIdent("Foo", pos),
+					Name: ast.NewIdent("Foo", token.NoPos),
 				},
 			},
 		}
@@ -464,12 +462,11 @@ func TestResolveDecl(t *testing.T) {
 		r := newTestResolver(t)
 		require := require.New(t)
 		scope := newScope()
-		pos := new(token.Position)
 		node := &ast.UnionDecl{
-			Name: ast.NewIdent("Cmp", pos),
+			Name: ast.NewIdent("Cmp", token.NoPos),
 			Ctors: []*ast.Constructor{
-				&ast.Constructor{Name: ast.NewIdent("Gt", pos)},
-				&ast.Constructor{Name: ast.NewIdent("Gt", pos)},
+				&ast.Constructor{Name: ast.NewIdent("Gt", token.NoPos)},
+				&ast.Constructor{Name: ast.NewIdent("Gt", token.NoPos)},
 			},
 		}
 		r.resolveDecl(scope, node)
@@ -498,19 +495,18 @@ func TestResolveQualifiedName(t *testing.T) {
 	scope := ast.NewNodeScope(nil, parent)
 	r := newTestResolver(t)
 
-	pos := new(token.Position)
 	fooBarBazPath := []*ast.Ident{
-		ast.NewIdent("Foo", pos),
-		ast.NewIdent("Bar", pos),
-		ast.NewIdent("Baz", pos),
+		ast.NewIdent("Foo", token.NoPos),
+		ast.NewIdent("Bar", token.NoPos),
+		ast.NewIdent("Baz", token.NoPos),
 	}
 	fooBarPath := []*ast.Ident{
-		ast.NewIdent("Foo", pos),
-		ast.NewIdent("Bar", pos),
+		ast.NewIdent("Foo", token.NoPos),
+		ast.NewIdent("Bar", token.NoPos),
 	}
 
 	t.Run("Type", func(t *testing.T) {
-		ident := ast.NewIdent("Qux", pos)
+		ident := ast.NewIdent("Qux", token.NoPos)
 		node := ast.NewSelectorExpr(append(fooBarBazPath, ident)...)
 		r.resolveQualifiedName(scope, node, ast.Typ)
 
@@ -522,7 +518,7 @@ func TestResolveQualifiedName(t *testing.T) {
 	})
 
 	t.Run("Var", func(t *testing.T) {
-		ident := ast.NewIdent("qux", pos)
+		ident := ast.NewIdent("qux", token.NoPos)
 		node := ast.NewSelectorExpr(append(fooBarPath, ident)...)
 		r.resolveQualifiedName(scope, node, ast.Var)
 
@@ -534,7 +530,7 @@ func TestResolveQualifiedName(t *testing.T) {
 	})
 
 	t.Run("Ctor", func(t *testing.T) {
-		ident := ast.NewIdent("Gux", pos)
+		ident := ast.NewIdent("Gux", token.NoPos)
 		node := ast.NewSelectorExpr(append(fooBarPath, ident)...)
 		r.resolveQualifiedName(scope, node, ast.Var)
 
@@ -546,8 +542,8 @@ func TestResolveQualifiedName(t *testing.T) {
 	})
 
 	t.Run("Var field", func(t *testing.T) {
-		ident := ast.NewIdent("qux", pos)
-		field := ast.NewIdent("f", pos)
+		ident := ast.NewIdent("qux", token.NoPos)
+		field := ast.NewIdent("f", token.NoPos)
 		node := ast.NewSelectorExpr(append(fooBarPath, ident, field)...)
 		r.resolveQualifiedName(scope, node, ast.Var)
 
@@ -562,8 +558,8 @@ func TestResolveQualifiedName(t *testing.T) {
 	t.Run("Module not imported", func(t *testing.T) {
 		r := newTestResolver(t)
 		node := ast.NewSelectorExpr(
-			ast.NewIdent("Foo", pos),
-			ast.NewIdent("bar", pos),
+			ast.NewIdent("Foo", token.NoPos),
+			ast.NewIdent("bar", token.NoPos),
 		)
 		r.resolveQualifiedName(scope, node, ast.Var)
 
@@ -573,7 +569,7 @@ func TestResolveQualifiedName(t *testing.T) {
 
 	t.Run("Import error", func(t *testing.T) {
 		r := newTestResolver(t)
-		node := ast.NewSelectorExpr(append(fooBarPath, ast.NewIdent("fux", pos))...)
+		node := ast.NewSelectorExpr(append(fooBarPath, ast.NewIdent("fux", token.NoPos))...)
 		r.resolveQualifiedName(scope, node, ast.Var)
 
 		assertReports(t, r.reporter, new(report.ImportError))
@@ -599,9 +595,9 @@ func TestResolveExpr(t *testing.T) {
 		require := require.New(t)
 		scope := newScope()
 		node := &ast.IfExpr{
-			Cond:     ast.NewIdent("a", nil),
-			ThenExpr: ast.NewIdent("b", nil),
-			ElseExpr: ast.NewIdent("c", nil),
+			Cond:     ast.NewIdent("a", token.NoPos),
+			ThenExpr: ast.NewIdent("b", token.NoPos),
+			ElseExpr: ast.NewIdent("c", token.NoPos),
 		}
 
 		r.resolveExpr(scope, node)
@@ -618,22 +614,22 @@ func TestResolveExpr(t *testing.T) {
 		require := require.New(t)
 		scope := newScope()
 		node := &ast.CaseExpr{
-			Expr: ast.NewIdent("a", nil),
+			Expr: ast.NewIdent("a", token.NoPos),
 			Branches: []*ast.CaseBranch{
 				{
 					Pattern: &ast.CtorPattern{
-						Ctor: ast.NewIdent("Just", nil),
+						Ctor: ast.NewIdent("Just", token.NoPos),
 						Args: []ast.Pattern{
-							&ast.VarPattern{ast.NewIdent("d", nil)},
+							&ast.VarPattern{ast.NewIdent("d", token.NoPos)},
 						},
 					},
-					Expr: ast.NewIdent("d", nil),
+					Expr: ast.NewIdent("d", token.NoPos),
 				},
 				{
 					Pattern: &ast.CtorPattern{
-						Ctor: ast.NewIdent("Nothing", nil),
+						Ctor: ast.NewIdent("Nothing", token.NoPos),
 					},
-					Expr: ast.NewIdent("c", nil),
+					Expr: ast.NewIdent("c", token.NoPos),
 				},
 			},
 		}
@@ -655,13 +651,13 @@ func TestResolveExpr(t *testing.T) {
 		scope := newScope()
 
 		xDecl := &ast.Definition{
-			Name: ast.NewIdent("x", nil),
-			Body: ast.NewIdent("a", nil),
+			Name: ast.NewIdent("x", token.NoPos),
+			Body: ast.NewIdent("a", token.NoPos),
 		}
 
 		yDecl := &ast.Definition{
-			Name: ast.NewIdent("y", nil),
-			Body: ast.NewIdent("b", nil),
+			Name: ast.NewIdent("y", token.NoPos),
+			Body: ast.NewIdent("b", token.NoPos),
 		}
 
 		node := &ast.LetExpr{
@@ -670,9 +666,9 @@ func TestResolveExpr(t *testing.T) {
 				yDecl,
 			},
 			Body: &ast.BinaryOp{
-				Op:  ast.NewIdent("+", nil),
-				Lhs: ast.NewIdent("y", nil),
-				Rhs: ast.NewIdent("x", nil),
+				Op:  ast.NewIdent("+", token.NoPos),
+				Lhs: ast.NewIdent("y", token.NoPos),
+				Rhs: ast.NewIdent("x", token.NoPos),
 			},
 		}
 		r.resolveExpr(scope, node)
@@ -699,9 +695,9 @@ func TestResolveExpr(t *testing.T) {
 		scope := newScope()
 		node := &ast.TupleLit{
 			Elems: []ast.Expr{
-				ast.NewIdent("a", nil),
-				ast.NewIdent("b", nil),
-				ast.NewIdent("c", nil),
+				ast.NewIdent("a", token.NoPos),
+				ast.NewIdent("b", token.NoPos),
+				ast.NewIdent("c", token.NoPos),
 			},
 		}
 
@@ -720,9 +716,9 @@ func TestResolveExpr(t *testing.T) {
 		scope := newScope()
 		node := &ast.ListLit{
 			Elems: []ast.Expr{
-				ast.NewIdent("a", nil),
-				ast.NewIdent("b", nil),
-				ast.NewIdent("c", nil),
+				ast.NewIdent("a", token.NoPos),
+				ast.NewIdent("b", token.NoPos),
+				ast.NewIdent("c", token.NoPos),
 			},
 		}
 
@@ -740,10 +736,10 @@ func TestResolveExpr(t *testing.T) {
 		require := require.New(t)
 		scope := newScope()
 		node := &ast.FuncApp{
-			Func: ast.NewIdent("a", nil),
+			Func: ast.NewIdent("a", token.NoPos),
 			Args: []ast.Expr{
-				ast.NewIdent("b", nil),
-				ast.NewIdent("c", nil),
+				ast.NewIdent("b", token.NoPos),
+				ast.NewIdent("c", token.NoPos),
 			},
 		}
 
@@ -762,8 +758,8 @@ func TestResolveExpr(t *testing.T) {
 		scope := newScope()
 		node := &ast.RecordLit{
 			Fields: []*ast.FieldAssign{
-				{Field: ast.NewIdent("x", nil), Expr: ast.NewIdent("a", nil)},
-				{Field: ast.NewIdent("y", nil), Expr: ast.NewIdent("b", nil)},
+				{Field: ast.NewIdent("x", token.NoPos), Expr: ast.NewIdent("a", token.NoPos)},
+				{Field: ast.NewIdent("y", token.NoPos), Expr: ast.NewIdent("b", token.NoPos)},
 			},
 		}
 		r.resolveExpr(scope, node)
@@ -781,11 +777,10 @@ func TestResolveExpr(t *testing.T) {
 		require := require.New(t)
 		r := newTestResolver(t)
 		scope := newScope()
-		pos := new(token.Position)
 		node := &ast.RecordLit{
 			Fields: []*ast.FieldAssign{
-				{Field: ast.NewIdent("x", pos), Expr: ast.NewIdent("a", pos)},
-				{Field: ast.NewIdent("x", pos)},
+				{Field: ast.NewIdent("x", token.NoPos), Expr: ast.NewIdent("a", token.NoPos)},
+				{Field: ast.NewIdent("x", token.NoPos)},
 			},
 		}
 		r.resolveExpr(scope, node)
@@ -798,10 +793,10 @@ func TestResolveExpr(t *testing.T) {
 		require := require.New(t)
 		scope := newScope()
 		node := &ast.RecordUpdate{
-			Record: ast.NewIdent("c", nil),
+			Record: ast.NewIdent("c", token.NoPos),
 			Fields: []*ast.FieldAssign{
-				{Field: ast.NewIdent("x", nil), Expr: ast.NewIdent("a", nil)},
-				{Field: ast.NewIdent("y", nil), Expr: ast.NewIdent("b", nil)},
+				{Field: ast.NewIdent("x", token.NoPos), Expr: ast.NewIdent("a", token.NoPos)},
+				{Field: ast.NewIdent("y", token.NoPos), Expr: ast.NewIdent("b", token.NoPos)},
 			},
 		}
 		r.resolveExpr(scope, node)
@@ -820,12 +815,11 @@ func TestResolveExpr(t *testing.T) {
 		require := require.New(t)
 		r := newTestResolver(t)
 		scope := newScope()
-		pos := new(token.Position)
 		node := &ast.RecordUpdate{
-			Record: ast.NewIdent("c", pos),
+			Record: ast.NewIdent("c", token.NoPos),
 			Fields: []*ast.FieldAssign{
-				{Field: ast.NewIdent("x", pos), Expr: ast.NewIdent("a", pos)},
-				{Field: ast.NewIdent("x", pos)},
+				{Field: ast.NewIdent("x", token.NoPos), Expr: ast.NewIdent("a", token.NoPos)},
+				{Field: ast.NewIdent("x", token.NoPos)},
 			},
 		}
 		r.resolveExpr(scope, node)
@@ -838,8 +832,8 @@ func TestResolveExpr(t *testing.T) {
 		require := require.New(t)
 		scope := newScope()
 		node := &ast.UnaryOp{
-			Op:   ast.NewIdent("-", nil),
-			Expr: ast.NewIdent("a", nil),
+			Op:   ast.NewIdent("-", token.NoPos),
+			Expr: ast.NewIdent("a", token.NoPos),
 		}
 
 		r.resolveExpr(scope, node)
@@ -855,9 +849,9 @@ func TestResolveExpr(t *testing.T) {
 		require := require.New(t)
 		scope := newScope()
 		node := &ast.BinaryOp{
-			Op:  ast.NewIdent("-", nil),
-			Lhs: ast.NewIdent("a", nil),
-			Rhs: ast.NewIdent("b", nil),
+			Op:  ast.NewIdent("-", token.NoPos),
+			Lhs: ast.NewIdent("a", token.NoPos),
+			Rhs: ast.NewIdent("b", token.NoPos),
 		}
 		r.resolveExpr(scope, node)
 
@@ -874,13 +868,13 @@ func TestResolveExpr(t *testing.T) {
 		scope := newScope()
 		node := &ast.Lambda{
 			Args: []ast.Pattern{
-				&ast.VarPattern{ast.NewIdent("x", nil)},
-				&ast.VarPattern{ast.NewIdent("y", nil)},
+				&ast.VarPattern{ast.NewIdent("x", token.NoPos)},
+				&ast.VarPattern{ast.NewIdent("y", token.NoPos)},
 			},
 			Expr: &ast.BinaryOp{
-				Op:  ast.NewIdent("+", nil),
-				Lhs: ast.NewIdent("x", nil),
-				Rhs: ast.NewIdent("y", nil),
+				Op:  ast.NewIdent("+", token.NoPos),
+				Lhs: ast.NewIdent("x", token.NoPos),
+				Rhs: ast.NewIdent("y", token.NoPos),
 			},
 		}
 
@@ -909,7 +903,7 @@ func TestResolveExpr(t *testing.T) {
 		require := require.New(t)
 		scope := newScope()
 		node := &ast.ParensExpr{
-			Expr: ast.NewIdent("a", nil),
+			Expr: ast.NewIdent("a", token.NoPos),
 		}
 
 		r.resolveExpr(scope, node)
@@ -924,7 +918,7 @@ func TestResolveExpr(t *testing.T) {
 		require := require.New(t)
 		scope := newScope()
 		node := &ast.AccessorExpr{
-			Field: ast.NewIdent("foo", nil),
+			Field: ast.NewIdent("foo", token.NoPos),
 		}
 
 		r.resolveExpr(scope, node)
@@ -949,7 +943,6 @@ func TestResolveExpr(t *testing.T) {
 }
 
 func TestResolveImport(t *testing.T) {
-	pos := new(token.Position)
 	cases := []struct {
 		name     string
 		decl     *ast.ImportDecl
@@ -959,8 +952,8 @@ func TestResolveImport(t *testing.T) {
 		{
 			"open list",
 			&ast.ImportDecl{
-				Module:   ast.NewIdent("Foo", pos),
-				Alias:    ast.NewIdent("FooAlias", pos),
+				Module:   ast.NewIdent("Foo", token.NoPos),
+				Alias:    ast.NewIdent("FooAlias", token.NoPos),
 				Exposing: new(ast.OpenList),
 			},
 			[]string{"foo", "bar", "Cmp"},
@@ -969,11 +962,11 @@ func TestResolveImport(t *testing.T) {
 		{
 			"closed list 2 exposed vars",
 			&ast.ImportDecl{
-				Module: ast.NewIdent("Foo", pos),
+				Module: ast.NewIdent("Foo", token.NoPos),
 				Exposing: &ast.ClosedList{
 					Exposed: []ast.ExposedIdent{
-						&ast.ExposedVar{ast.NewIdent("foo", pos)},
-						&ast.ExposedVar{ast.NewIdent("bar", pos)},
+						&ast.ExposedVar{ast.NewIdent("foo", token.NoPos)},
+						&ast.ExposedVar{ast.NewIdent("bar", token.NoPos)},
 					},
 				},
 			},
@@ -983,11 +976,11 @@ func TestResolveImport(t *testing.T) {
 		{
 			"closed list no exposed var",
 			&ast.ImportDecl{
-				Module: ast.NewIdent("Foo", pos),
+				Module: ast.NewIdent("Foo", token.NoPos),
 				Exposing: &ast.ClosedList{
 					Exposed: []ast.ExposedIdent{
-						&ast.ExposedVar{ast.NewIdent("foo", pos)},
-						&ast.ExposedVar{ast.NewIdent("baz", pos)},
+						&ast.ExposedVar{ast.NewIdent("foo", token.NoPos)},
+						&ast.ExposedVar{ast.NewIdent("baz", token.NoPos)},
 					},
 				},
 			},
@@ -997,11 +990,11 @@ func TestResolveImport(t *testing.T) {
 		{
 			"closed list wrong exposed var",
 			&ast.ImportDecl{
-				Module: ast.NewIdent("Foo", pos),
+				Module: ast.NewIdent("Foo", token.NoPos),
 				Exposing: &ast.ClosedList{
 					Exposed: []ast.ExposedIdent{
-						&ast.ExposedVar{ast.NewIdent("foo", pos)},
-						&ast.ExposedVar{ast.NewIdent("Eq", pos)},
+						&ast.ExposedVar{ast.NewIdent("foo", token.NoPos)},
+						&ast.ExposedVar{ast.NewIdent("Eq", token.NoPos)},
 					},
 				},
 			},
@@ -1011,11 +1004,11 @@ func TestResolveImport(t *testing.T) {
 		{
 			"exposed union is not union",
 			&ast.ImportDecl{
-				Module: ast.NewIdent("Foo", pos),
+				Module: ast.NewIdent("Foo", token.NoPos),
 				Exposing: &ast.ClosedList{
 					Exposed: []ast.ExposedIdent{
 						&ast.ExposedUnion{
-							Type:  ast.NewIdent("Eq", pos),
+							Type:  ast.NewIdent("Eq", token.NoPos),
 							Ctors: new(ast.OpenList),
 						},
 					},
@@ -1027,11 +1020,11 @@ func TestResolveImport(t *testing.T) {
 		{
 			"exposed union open list",
 			&ast.ImportDecl{
-				Module: ast.NewIdent("Foo", pos),
+				Module: ast.NewIdent("Foo", token.NoPos),
 				Exposing: &ast.ClosedList{
 					Exposed: []ast.ExposedIdent{
 						&ast.ExposedUnion{
-							Type:  ast.NewIdent("Cmp", nil),
+							Type:  ast.NewIdent("Cmp", token.NoPos),
 							Ctors: new(ast.OpenList),
 						},
 					},
@@ -1043,15 +1036,15 @@ func TestResolveImport(t *testing.T) {
 		{
 			"exposed union closed list",
 			&ast.ImportDecl{
-				Module: ast.NewIdent("Foo", pos),
+				Module: ast.NewIdent("Foo", token.NoPos),
 				Exposing: &ast.ClosedList{
 					Exposed: []ast.ExposedIdent{
 						&ast.ExposedUnion{
-							Type: ast.NewIdent("Cmp", nil),
+							Type: ast.NewIdent("Cmp", token.NoPos),
 							Ctors: &ast.ClosedList{
 								Exposed: []ast.ExposedIdent{
-									&ast.ExposedVar{ast.NewIdent("Eq", pos)},
-									&ast.ExposedVar{ast.NewIdent("Gt", pos)},
+									&ast.ExposedVar{ast.NewIdent("Eq", token.NoPos)},
+									&ast.ExposedVar{ast.NewIdent("Gt", token.NoPos)},
 								},
 							},
 						},
@@ -1064,15 +1057,15 @@ func TestResolveImport(t *testing.T) {
 		{
 			"exposed union closed list import error",
 			&ast.ImportDecl{
-				Module: ast.NewIdent("Foo", pos),
+				Module: ast.NewIdent("Foo", token.NoPos),
 				Exposing: &ast.ClosedList{
 					Exposed: []ast.ExposedIdent{
 						&ast.ExposedUnion{
-							Type: ast.NewIdent("Cmp", nil),
+							Type: ast.NewIdent("Cmp", token.NoPos),
 							Ctors: &ast.ClosedList{
 								Exposed: []ast.ExposedIdent{
-									&ast.ExposedVar{ast.NewIdent("Baz", pos)},
-									&ast.ExposedVar{ast.NewIdent("Gt", pos)},
+									&ast.ExposedVar{ast.NewIdent("Baz", token.NoPos)},
+									&ast.ExposedVar{ast.NewIdent("Gt", token.NoPos)},
 								},
 							},
 						},
@@ -1085,15 +1078,15 @@ func TestResolveImport(t *testing.T) {
 		{
 			"exposed union closed list wrong type",
 			&ast.ImportDecl{
-				Module: ast.NewIdent("Foo", pos),
+				Module: ast.NewIdent("Foo", token.NoPos),
 				Exposing: &ast.ClosedList{
 					Exposed: []ast.ExposedIdent{
 						&ast.ExposedUnion{
-							Type: ast.NewIdent("Cmp", nil),
+							Type: ast.NewIdent("Cmp", token.NoPos),
 							Ctors: &ast.ClosedList{
 								Exposed: []ast.ExposedIdent{
-									&ast.ExposedVar{ast.NewIdent("Cmp", pos)},
-									&ast.ExposedVar{ast.NewIdent("Gt", pos)},
+									&ast.ExposedVar{ast.NewIdent("Cmp", token.NoPos)},
+									&ast.ExposedVar{ast.NewIdent("Gt", token.NoPos)},
 								},
 							},
 						},
@@ -1106,11 +1099,11 @@ func TestResolveImport(t *testing.T) {
 		{
 			"exposed union type does not exist",
 			&ast.ImportDecl{
-				Module: ast.NewIdent("Foo", pos),
+				Module: ast.NewIdent("Foo", token.NoPos),
 				Exposing: &ast.ClosedList{
 					Exposed: []ast.ExposedIdent{
 						&ast.ExposedUnion{
-							Type:  ast.NewIdent("Qux", pos),
+							Type:  ast.NewIdent("Qux", token.NoPos),
 							Ctors: new(ast.OpenList),
 						},
 					},
@@ -1126,14 +1119,14 @@ func TestResolveImport(t *testing.T) {
 	fooScope.Expose(ast.NewObject("bar", ast.Var, nil))
 	fooScope.Expose(ast.NewObject("Cmp", ast.Typ, &ast.UnionDecl{
 		Ctors: []*ast.Constructor{
-			{Name: ast.NewIdent("Eq", pos)},
-			{Name: ast.NewIdent("Lt", pos)},
-			{Name: ast.NewIdent("Gt", pos)},
+			{Name: ast.NewIdent("Eq", token.NoPos)},
+			{Name: ast.NewIdent("Lt", token.NoPos)},
+			{Name: ast.NewIdent("Gt", token.NoPos)},
 		},
 	}))
-	fooScope.Expose(ast.NewObject("Eq", ast.Ctor, &ast.Constructor{Name: ast.NewIdent("Eq", pos)}))
-	fooScope.Expose(ast.NewObject("Gt", ast.Ctor, &ast.Constructor{Name: ast.NewIdent("Gt", pos)}))
-	fooScope.Expose(ast.NewObject("Lt", ast.Ctor, &ast.Constructor{Name: ast.NewIdent("Lt", pos)}))
+	fooScope.Expose(ast.NewObject("Eq", ast.Ctor, &ast.Constructor{Name: ast.NewIdent("Eq", token.NoPos)}))
+	fooScope.Expose(ast.NewObject("Gt", ast.Ctor, &ast.Constructor{Name: ast.NewIdent("Gt", token.NoPos)}))
+	fooScope.Expose(ast.NewObject("Lt", ast.Ctor, &ast.Constructor{Name: ast.NewIdent("Lt", token.NoPos)}))
 	pkg := &ast.Package{
 		Modules: map[string]*ast.Module{
 			"Foo": &ast.Module{
@@ -1171,7 +1164,6 @@ func TestResolveImport(t *testing.T) {
 }
 
 func TestResolveModuleDecl(t *testing.T) {
-	pos := new(token.Position)
 	cases := []struct {
 		name     string
 		decl     *ast.ModuleDecl
@@ -1191,8 +1183,8 @@ func TestResolveModuleDecl(t *testing.T) {
 			&ast.ModuleDecl{
 				Exposing: &ast.ClosedList{
 					Exposed: []ast.ExposedIdent{
-						&ast.ExposedVar{ast.NewIdent("foo", pos)},
-						&ast.ExposedVar{ast.NewIdent("bar", pos)},
+						&ast.ExposedVar{ast.NewIdent("foo", token.NoPos)},
+						&ast.ExposedVar{ast.NewIdent("bar", token.NoPos)},
 					},
 				},
 			},
@@ -1204,8 +1196,8 @@ func TestResolveModuleDecl(t *testing.T) {
 			&ast.ModuleDecl{
 				Exposing: &ast.ClosedList{
 					Exposed: []ast.ExposedIdent{
-						&ast.ExposedVar{ast.NewIdent("foo", pos)},
-						&ast.ExposedVar{ast.NewIdent("baz", pos)},
+						&ast.ExposedVar{ast.NewIdent("foo", token.NoPos)},
+						&ast.ExposedVar{ast.NewIdent("baz", token.NoPos)},
 					},
 				},
 			},
@@ -1217,8 +1209,8 @@ func TestResolveModuleDecl(t *testing.T) {
 			&ast.ModuleDecl{
 				Exposing: &ast.ClosedList{
 					Exposed: []ast.ExposedIdent{
-						&ast.ExposedVar{ast.NewIdent("foo", pos)},
-						&ast.ExposedVar{ast.NewIdent("Eq", pos)},
+						&ast.ExposedVar{ast.NewIdent("foo", token.NoPos)},
+						&ast.ExposedVar{ast.NewIdent("Eq", token.NoPos)},
 					},
 				},
 			},
@@ -1231,7 +1223,7 @@ func TestResolveModuleDecl(t *testing.T) {
 				Exposing: &ast.ClosedList{
 					Exposed: []ast.ExposedIdent{
 						&ast.ExposedUnion{
-							Type:  ast.NewIdent("Eq", pos),
+							Type:  ast.NewIdent("Eq", token.NoPos),
 							Ctors: new(ast.OpenList),
 						},
 					},
@@ -1246,7 +1238,7 @@ func TestResolveModuleDecl(t *testing.T) {
 				Exposing: &ast.ClosedList{
 					Exposed: []ast.ExposedIdent{
 						&ast.ExposedUnion{
-							Type:  ast.NewIdent("Cmp", pos),
+							Type:  ast.NewIdent("Cmp", token.NoPos),
 							Ctors: new(ast.OpenList),
 						},
 					},
@@ -1261,11 +1253,11 @@ func TestResolveModuleDecl(t *testing.T) {
 				Exposing: &ast.ClosedList{
 					Exposed: []ast.ExposedIdent{
 						&ast.ExposedUnion{
-							Type: ast.NewIdent("Cmp", pos),
+							Type: ast.NewIdent("Cmp", token.NoPos),
 							Ctors: &ast.ClosedList{
 								Exposed: []ast.ExposedIdent{
-									&ast.ExposedVar{ast.NewIdent("Eq", pos)},
-									&ast.ExposedVar{ast.NewIdent("Gt", pos)},
+									&ast.ExposedVar{ast.NewIdent("Eq", token.NoPos)},
+									&ast.ExposedVar{ast.NewIdent("Gt", token.NoPos)},
 								},
 							},
 						},
@@ -1281,11 +1273,11 @@ func TestResolveModuleDecl(t *testing.T) {
 				Exposing: &ast.ClosedList{
 					Exposed: []ast.ExposedIdent{
 						&ast.ExposedUnion{
-							Type: ast.NewIdent("Cmp", pos),
+							Type: ast.NewIdent("Cmp", token.NoPos),
 							Ctors: &ast.ClosedList{
 								Exposed: []ast.ExposedIdent{
-									&ast.ExposedVar{ast.NewIdent("Baz", pos)},
-									&ast.ExposedVar{ast.NewIdent("Gt", pos)},
+									&ast.ExposedVar{ast.NewIdent("Baz", token.NoPos)},
+									&ast.ExposedVar{ast.NewIdent("Gt", token.NoPos)},
 								},
 							},
 						},
@@ -1301,11 +1293,11 @@ func TestResolveModuleDecl(t *testing.T) {
 				Exposing: &ast.ClosedList{
 					Exposed: []ast.ExposedIdent{
 						&ast.ExposedUnion{
-							Type: ast.NewIdent("Cmp", pos),
+							Type: ast.NewIdent("Cmp", token.NoPos),
 							Ctors: &ast.ClosedList{
 								Exposed: []ast.ExposedIdent{
-									&ast.ExposedVar{ast.NewIdent("Cmp", pos)},
-									&ast.ExposedVar{ast.NewIdent("Gt", pos)},
+									&ast.ExposedVar{ast.NewIdent("Cmp", token.NoPos)},
+									&ast.ExposedVar{ast.NewIdent("Gt", token.NoPos)},
 								},
 							},
 						},
@@ -1321,7 +1313,7 @@ func TestResolveModuleDecl(t *testing.T) {
 				Exposing: &ast.ClosedList{
 					Exposed: []ast.ExposedIdent{
 						&ast.ExposedUnion{
-							Type:  ast.NewIdent("Qux", pos),
+							Type:  ast.NewIdent("Qux", token.NoPos),
 							Ctors: new(ast.OpenList),
 						},
 					},
@@ -1336,7 +1328,7 @@ func TestResolveModuleDecl(t *testing.T) {
 				Exposing: &ast.ClosedList{
 					Exposed: []ast.ExposedIdent{
 						&ast.ExposedUnion{
-							Type:  ast.NewIdent("bar", pos),
+							Type:  ast.NewIdent("bar", token.NoPos),
 							Ctors: new(ast.OpenList),
 						},
 					},
@@ -1353,18 +1345,18 @@ func TestResolveModuleDecl(t *testing.T) {
 		scope := ast.NewModuleScope(&ast.Module{
 			Module: c.decl,
 		})
-		scope.Add(ast.NewObject("foo", ast.Var, ast.NewIdent("foo", pos)))
-		scope.Add(ast.NewObject("bar", ast.Var, ast.NewIdent("bar", pos)))
+		scope.Add(ast.NewObject("foo", ast.Var, ast.NewIdent("foo", token.NoPos)))
+		scope.Add(ast.NewObject("bar", ast.Var, ast.NewIdent("bar", token.NoPos)))
 		scope.Add(ast.NewObject("Cmp", ast.Typ, &ast.UnionDecl{
 			Ctors: []*ast.Constructor{
-				{Name: ast.NewIdent("Eq", pos)},
-				{Name: ast.NewIdent("Lt", pos)},
-				{Name: ast.NewIdent("Gt", pos)},
+				{Name: ast.NewIdent("Eq", token.NoPos)},
+				{Name: ast.NewIdent("Lt", token.NoPos)},
+				{Name: ast.NewIdent("Gt", token.NoPos)},
 			},
 		}))
-		scope.Add(ast.NewObject("Eq", ast.Ctor, &ast.Constructor{Name: ast.NewIdent("Eq", pos)}))
-		scope.Add(ast.NewObject("Gt", ast.Ctor, &ast.Constructor{Name: ast.NewIdent("Gt", pos)}))
-		scope.Add(ast.NewObject("Lt", ast.Ctor, &ast.Constructor{Name: ast.NewIdent("Lt", pos)}))
+		scope.Add(ast.NewObject("Eq", ast.Ctor, &ast.Constructor{Name: ast.NewIdent("Eq", token.NoPos)}))
+		scope.Add(ast.NewObject("Gt", ast.Ctor, &ast.Constructor{Name: ast.NewIdent("Gt", token.NoPos)}))
+		scope.Add(ast.NewObject("Lt", ast.Ctor, &ast.Constructor{Name: ast.NewIdent("Lt", token.NoPos)}))
 
 		t.Run(c.name, func(t *testing.T) {
 			require := require.New(t)

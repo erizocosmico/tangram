@@ -117,7 +117,7 @@ func parseExposedIdent(p *parser, parsingUnion bool) ast.ExposedIdent {
 
 	if p.is(token.LeftParen) {
 		if parsingUnion {
-			p.errorMessage(p.tok.Position, "A constructor cannot expose anything.")
+			p.errorMessage(p.tok.Offset, "A constructor cannot expose anything.")
 		}
 
 		if !isUpper(ident.Name) {
@@ -189,7 +189,7 @@ func parseDestructuringAssignment(p *parser) *ast.DestructuringAssignment {
 	_, ok := a.Pattern.(ast.ArgPattern)
 	if !ok {
 		p.errorMessage(
-			p.tok.Position,
+			p.tok.Offset,
 			errorMsgInvalidDestructuringPattern,
 		)
 		panic(bailout{})
@@ -313,7 +313,7 @@ func parseDefinition(p *parser) ast.Decl {
 		defName := parseIdentifierOrOp(p)
 		if defName.Name != name.Name {
 			p.errorMessage(
-				p.tok.Position,
+				p.tok.Offset,
 				fmt.Sprintf(
 					"A definition must be right below its type annotation, I found the definition of `%s` after the annotation of `%s` instead.",
 					defName.Name,

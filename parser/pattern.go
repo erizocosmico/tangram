@@ -23,7 +23,7 @@ func parseFuncArgs(p *parser, end token.Type) []ast.Pattern {
 		arg, ok := pattern.(ast.ArgPattern)
 		if !ok {
 			p.errorMessage(
-				tok.Position,
+				tok.Offset,
 				errorMsgInvalidArgPattern,
 			)
 		}
@@ -61,7 +61,7 @@ func parsePattern(p *parser, greedy bool) (pat ast.Pattern) {
 		pat = &ast.LiteralPattern{parseLiteral(p)}
 	case token.True, token.False:
 		p.expectOneOf(token.True, token.False)
-		pat = &ast.CtorPattern{Ctor: ast.NewIdent(p.tok.Value, p.tok.Position)}
+		pat = &ast.CtorPattern{Ctor: ast.NewIdent(p.tok.Value, p.tok.Offset)}
 	default:
 		p.errorExpectedOneOf(p.tok, token.Identifier, token.LeftParen, token.LeftBrace, token.LeftBracket)
 	}
@@ -104,7 +104,7 @@ func parseCtorListPattern(p *parser, pat ast.Pattern) ast.Pattern {
 	return &ast.CtorPattern{
 		Ctor: &ast.Ident{
 			Name:    "::",
-			NamePos: pos,
+			NamePos: pos.Offset,
 		},
 		Args: []ast.Pattern{
 			pat,
