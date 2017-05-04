@@ -36,6 +36,30 @@ func TestLexNumber(t *testing.T) {
 	})
 }
 
+func TestLexString(t *testing.T) {
+	require := require.New(t)
+
+	// note: first quote is already scanned
+	testLexState(t, `foo bar\"baz\"" `, lexString, func(l *Scanner, tokens []*token.Token) {
+		require.Equal(1, len(tokens))
+		require.Equal(token.String, tokens[0].Type)
+		// is missing the first quote because we did not actually scan it
+		require.Equal(`foo bar\"baz\""`, tokens[0].Value)
+	})
+
+	testLexState(t, `""foo
+	"" slfjlkdfj
+	jfdlskfj " " "
+	""" `, lexString, func(l *Scanner, tokens []*token.Token) {
+		require.Equal(1, len(tokens))
+		require.Equal(token.String, tokens[0].Type)
+		require.Equal(`""foo
+	"" slfjlkdfj
+	jfdlskfj " " "
+	"""`, tokens[0].Value)
+	})
+}
+
 const testRecord = `
 type alias Foo = 
 	{ myInt : Int 
