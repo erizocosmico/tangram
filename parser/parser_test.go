@@ -1271,6 +1271,7 @@ func TestParseExpr(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.input, func(st *testing.T) {
+			fmt.Println(c.input)
 			mustParseExpr(t, c.input, c.assert)
 		})
 	}
@@ -1348,10 +1349,20 @@ func stringParser(t *testing.T, str string) *parser {
 	d := report.NewReporter(cm, report.Stderr(true, true))
 
 	opTable := operator.BuiltinTable()
-	opTable.Add(":>", "", operator.NonAssoc, 5)
+	opTable.Add(":>", "Foo", operator.NonAssoc, 5)
+	opTable.AddToModule("Test", "Foo", ":>")
+	var ops = []string{
+		"+", "-", "*", "/", "//", "^",
+		"++", "::", "==", "/=", "<", ">",
+		"<=", ">=", "&&", "||", "<|", "|>",
+	}
+	for _, op := range ops {
+		opTable.AddToModule("Test", "Basics", op)
+	}
 
 	sess := NewSession(d, cm, opTable)
 	var p = newParser(sess)
 	p.init("test", scanner, FullParse)
+	p.modName = "Test"
 	return p
 }

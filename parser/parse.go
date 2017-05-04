@@ -212,6 +212,15 @@ func (p *fullParser) firstPass(path string, visited map[string]struct{}) {
 			p.modCache[importMod] = importPath
 		}
 
+		if imp.Exposing != nil {
+			ast.WalkFunc(imp.Exposing, func(n ast.Node) bool {
+				if v, ok := n.(*ast.ExposedVar); ok && v.IsOp() {
+					p.optable.AddToModule(mod, importMod, v.Name)
+				}
+				return true
+			})
+		}
+
 		if isNative(importPath) {
 			file.NativeImports = append(file.NativeImports, importPath)
 		} else {
