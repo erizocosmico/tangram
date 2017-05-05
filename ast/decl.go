@@ -3,7 +3,6 @@ package ast
 import (
 	"fmt"
 
-	"github.com/elm-tangram/tangram/operator"
 	"github.com/elm-tangram/tangram/token"
 )
 
@@ -130,12 +129,24 @@ type InfixDecl struct {
 	// InfixPos is the position of the "infix", "infixl" or "infixr" keyword.
 	InfixPos token.Pos
 	// Assoc is the associativity of the infix operator.
-	Assoc operator.Associativity
+	Assoc Associativity
 	// Op is the name of the operator.
 	Op *Ident
 	// Precence of the infix operator.
 	Precedence *BasicLit
 }
+
+// Associativity is the type of associativity of the operator.
+type Associativity byte
+
+const (
+	// NonAssoc is a non associative operator.
+	NonAssoc Associativity = iota
+	// Left associativity.
+	Left
+	// Right associativity.
+	Right
+)
 
 func (InfixDecl) isDecl()          {}
 func (d InfixDecl) Pos() token.Pos { return d.InfixPos }

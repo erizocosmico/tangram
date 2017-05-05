@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/elm-tangram/tangram/ast"
-	"github.com/elm-tangram/tangram/operator"
 
 	"github.com/stretchr/testify/require"
 )
@@ -48,14 +47,14 @@ func TestParseFile_OnlyFixity(t *testing.T) {
 		require.Equal("Foo", name.String(), "module name")
 
 		require.Len(f.Decls, 2, "should have 2 decls")
-		assertFixity(t, f.Decls[0], "?", 6, operator.Right)
-		assertFixity(t, f.Decls[1], ":>", 7, operator.Left)
+		assertFixity(t, f.Decls[0], "?", 6, ast.Right)
+		assertFixity(t, f.Decls[1], ":>", 7, ast.Left)
 	}()
 	require.True(p.sess.IsOK(), "no errors should be returned")
 	require.NotNil(f)
 }
 
-func assertFixity(t *testing.T, d ast.Decl, op string, precedence uint, assoc operator.Associativity) {
+func assertFixity(t *testing.T, d ast.Decl, op string, precedence uint, assoc ast.Associativity) {
 	decl, ok := d.(*ast.InfixDecl)
 	require.True(t, ok, "should be InfixDecl")
 	require.Equal(t, op, decl.Op.Name)
@@ -226,7 +225,7 @@ func TestParseFull(t *testing.T) {
 				Identifier("m"),
 			),
 		),
-		InfixDecl("?", operator.Left, Literal(ast.Int, "2")),
+		InfixDecl("?", ast.Left, Literal(ast.Int, "2")),
 		Definition(
 			"?:",
 			TypeAnnotation(

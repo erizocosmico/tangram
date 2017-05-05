@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/elm-tangram/tangram/ast"
-	"github.com/elm-tangram/tangram/operator"
 	"github.com/elm-tangram/tangram/report"
 	"github.com/elm-tangram/tangram/scanner"
 	"github.com/elm-tangram/tangram/source"
@@ -154,23 +153,23 @@ func TestParseImport(t *testing.T) {
 func TestParseInfixDecl(t *testing.T) {
 	cases := []struct {
 		input    string
-		assoc    operator.Associativity
+		assoc    ast.Associativity
 		op       string
 		priority int
 		ok       bool
 		eof      bool
 	}{
-		{"infixr 4 ?", operator.Right, "?", 4, true, false},
-		{"infixl 4 ?", operator.Left, "?", 4, true, false},
-		{"infix 4 ?", operator.NonAssoc, "?", 4, true, false},
-		{"infixl 0 ?", operator.Left, "?", 0, true, false},
-		{"infixl 4 foo", operator.Left, "_", 0, false, false},
-		{"infixl \"a\" ?", operator.Left, "_", 0, false, false},
-		{"infixl ? 5", operator.Left, "_", 0, false, false},
-		{"infixl ?", operator.Left, "_", 0, false, true},
-		{"infixl -1 ?", operator.Left, "_", 0, false, false},
-		{"infixl 10 ?", operator.Left, "_", 0, false, false},
-		{"infixl 20 ?", operator.Left, "_", 0, false, false},
+		{"infixr 4 ?", ast.Right, "?", 4, true, false},
+		{"infixl 4 ?", ast.Left, "?", 4, true, false},
+		{"infix 4 ?", ast.NonAssoc, "?", 4, true, false},
+		{"infixl 0 ?", ast.Left, "?", 0, true, false},
+		{"infixl 4 foo", ast.Left, "_", 0, false, false},
+		{"infixl \"a\" ?", ast.Left, "_", 0, false, false},
+		{"infixl ? 5", ast.Left, "_", 0, false, false},
+		{"infixl ?", ast.Left, "_", 0, false, true},
+		{"infixl -1 ?", ast.Left, "_", 0, false, false},
+		{"infixl 10 ?", ast.Left, "_", 0, false, false},
+		{"infixl 20 ?", ast.Left, "_", 0, false, false},
 	}
 
 	for _, c := range cases {
@@ -1348,16 +1347,16 @@ func stringParser(t *testing.T, str string) *parser {
 	require.NoError(t, cm.Add("test"))
 	d := report.NewReporter(cm, report.Stderr(true, true))
 
-	opTable := operator.BuiltinTable()
-	opTable.Add(":>", "Foo", operator.NonAssoc, 5)
-	opTable.AddToModule("Test", "Foo", ":>")
+	opTable := builtinOpTable()
+	opTable.add(":>", "Foo", ast.NonAssoc, 5)
+	opTable.addToModule("Test", "Foo", ":>")
 	var ops = []string{
 		"+", "-", "*", "/", "//", "^",
 		"++", "::", "==", "/=", "<", ">",
 		"<=", ">=", "&&", "||", "<|", "|>",
 	}
 	for _, op := range ops {
-		opTable.AddToModule("Test", "Basics", op)
+		opTable.addToModule("Test", "Basics", op)
 	}
 
 	sess := NewSession(d, cm, opTable)

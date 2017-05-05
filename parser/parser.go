@@ -7,7 +7,6 @@ import (
 	"unicode/utf8"
 
 	"github.com/elm-tangram/tangram/ast"
-	"github.com/elm-tangram/tangram/operator"
 	"github.com/elm-tangram/tangram/package"
 	"github.com/elm-tangram/tangram/report"
 	"github.com/elm-tangram/tangram/scanner"
@@ -317,15 +316,15 @@ func (p *parser) is(typ token.Type) bool {
 	return p.tok.Type == typ
 }
 
-func (p *parser) opInfo(name string) *operator.OpInfo {
-	info := p.sess.Table.Lookup(name, p.modName)
+func (p *parser) opInfo(name string) *operatorInfo {
+	info := p.sess.opTable.lookup(name, p.modName)
 	if info != nil {
 		return info
 	}
 
-	return &operator.OpInfo{
+	return &operatorInfo{
 		Precedence:    0,
-		Associativity: operator.Left,
+		Associativity: ast.Left,
 	}
 }
 
