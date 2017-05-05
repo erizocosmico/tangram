@@ -145,7 +145,7 @@ func TestResolveType(t *testing.T) {
 				&ast.NamedType{Name: ast.NewIdent("Int", token.NoPos)},
 			},
 		}
-		r.resolveType(scope, node)
+		r.resolveType(scope, node, false)
 
 		require.Len(scope.Objects, 0)
 		require.Len(scope.Unresolved, 0)
@@ -160,7 +160,7 @@ func TestResolveType(t *testing.T) {
 		scope := newScope()
 
 		node := &ast.VarType{ast.NewIdent("a", token.NoPos)}
-		r.resolveType(scope, node)
+		r.resolveType(scope, node, false)
 
 		require.Len(scope.Objects, 0)
 		require.Len(scope.Unresolved, 0)
@@ -179,7 +179,7 @@ func TestResolveType(t *testing.T) {
 			},
 			Return: &ast.NamedType{Name: ast.NewIdent("Int", token.NoPos)},
 		}
-		r.resolveType(scope, node)
+		r.resolveType(scope, node, false)
 
 		require.Len(scope.Objects, 0)
 		require.Len(scope.Unresolved, 0)
@@ -200,7 +200,7 @@ func TestResolveType(t *testing.T) {
 			},
 		}
 
-		r.resolveType(scope, node)
+		r.resolveType(scope, node, false)
 
 		require.Len(scope.Objects, 0)
 		require.Len(scope.Unresolved, 0)
@@ -225,7 +225,7 @@ func TestResolveType(t *testing.T) {
 				},
 			},
 		}
-		r.resolveType(scope, node)
+		r.resolveType(scope, node, false)
 
 		require.Len(scope.Objects, 0)
 		require.Len(scope.Unresolved, 0)
@@ -252,7 +252,7 @@ func TestResolveType(t *testing.T) {
 				},
 			},
 		}
-		r.resolveType(scope, node)
+		r.resolveType(scope, node, false)
 
 		assertReports(t, r.reporter, new(report.RepeatedFieldError))
 		require.False(r.reporter.IsOK())

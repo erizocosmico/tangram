@@ -26,6 +26,22 @@ func (e UndefinedError) Message() string {
 	return fmt.Sprintf("Name %q is not defined.", e.Name)
 }
 
+type UndefinedTypeVarError struct {
+	BaseReport
+	Name string
+}
+
+func NewUndefinedTypeVarError(expr ast.Node, varTyp *ast.VarType) *UndefinedTypeVarError {
+	return &UndefinedTypeVarError{
+		NewBaseReport(NameError, varTyp.Pos(), "", RegionFromNode(expr)),
+		varTyp.Name,
+	}
+}
+
+func (e UndefinedTypeVarError) Message() string {
+	return fmt.Sprintf("I found a variable type %q, but it is not defined on the type declaration.", e.Name)
+}
+
 type ModuleNotImportedError struct {
 	BaseReport
 	Module string

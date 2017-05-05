@@ -143,7 +143,7 @@ func (r *resolver) resolveDecl(scope ast.Scope, decl ast.Decl) {
 		r.resolveExpr(scope, decl.Op)
 	case *ast.Definition:
 		if decl.Annotation != nil {
-			r.resolveType(scope, decl.Annotation.Type)
+			r.resolveType(scope, decl.Annotation.Type, false)
 		}
 		scope.Add(ast.NewObject(decl.Name.Name, ast.Var, decl.Name))
 
@@ -154,6 +154,7 @@ func (r *resolver) resolveDecl(scope ast.Scope, decl ast.Decl) {
 		r.resolveExpr(defScope, decl.Body)
 	case *ast.AliasDecl:
 		scope.Add(ast.NewObject(decl.Name.Name, ast.Typ, decl))
+		declScope := ast.NewNodeScope(decl, scope)
 		set := make(map[string]struct{})
 		for _, arg := range decl.Args {
 			if _, ok := set[arg.Name]; ok {
@@ -161,10 +162,12 @@ func (r *resolver) resolveDecl(scope ast.Scope, decl ast.Decl) {
 				return
 			}
 			set[arg.Name] = struct{}{}
+			declScope.Add(ast.NewObject(arg.Name, ast.VarTyp, arg))
 		}
-		r.resolveType(scope, decl.Type)
+		r.resolveType(declScope, decl.Type, true)
 	case *ast.UnionDecl:
 		scope.Add(ast.NewObject(decl.Name.Name, ast.Typ, decl))
+		declScope := ast.NewNodeScope(decl, scope)
 		set := make(map[string]struct{})
 		for _, arg := range decl.Args {
 			if _, ok := set[arg.Name]; ok {
@@ -172,6 +175,7 @@ func (r *resolver) resolveDecl(scope ast.Scope, decl ast.Decl) {
 				return
 			}
 			set[arg.Name] = struct{}{}
+			declScope.Add(ast.NewObject(arg.Name, ast.VarTyp, arg))
 		}
 
 		set = make(map[string]struct{})
@@ -181,7 +185,7 @@ func (r *resolver) resolveDecl(scope ast.Scope, decl ast.Decl) {
 				return
 			}
 			set[ctor.Name.Name] = struct{}{}
-			r.resolveCtor(scope, ctor)
+			r.resolveCtor(scope, declScope, ctor)
 		}
 	}
 }
@@ -263,11 +267,11 @@ func (r *resolver) tryExposeCtor(scope *ast.ModuleScope, ident *ast.Ident) *ast.
 	return nil
 }
 
-func (r *resolver) resolveCtor(scope ast.Scope, ctor *ast.Constructor) {
+func (r *resolver) resolveCtor(outerScope, declScope ast.Scope, ctor *ast.Constructor) {
 	// TODO: check is not already defined in scope
-	scope.Add(ast.NewObject(ctor.Name.Name, ast.Ctor, ctor))
+	outerScope.Add(ast.NewObject(ctor.Name.Name, ast.Ctor, ctor))
 	for _, arg := range ctor.Args {
-		r.resolveType(scope, arg)
+		r.resolveType(declScope, arg, true)
 	}
 }
 
@@ -377,20 +381,28 @@ func (r *resolver) resolvePattern(scope ast.Scope, pattern ast.Pattern) {
 	}
 }
 
-func (r *resolver) resolveType(scope ast.Scope, typ ast.Type) {
+// TODO: ability to pass a node to get better snippets on reports
+// pass the Annotation, TypeDecl or UnionDecl.
+func (r *resolver) resolveType(scope ast.Scope, typ ast.Type, resolveVars bool) {
 	switch typ := typ.(type) {
 	case *ast.NamedType:
 		r.resolveQualifiedName(scope, typ.Name, ast.Typ)
 		for _, arg := range typ.Args {
-			r.resolveType(scope, arg)
+			r.resolveType(scope, arg, resolveVars)
 		}
 	case *ast.VarType:
-		// don't do anything, they will be resolved during type check
+		if resolveVars {
+			if obj := scope.Lookup(typ.Name, ast.VarTyp); obj != nil {
+				typ.Obj = obj
+			} else {
+				r.report(report.NewUndefinedTypeVarError(typ, typ))
+			}
+		}
 	case *ast.FuncType:
 		for _, arg := range typ.Args {
-			r.resolveType(scope, arg)
+			r.resolveType(scope, arg, resolveVars)
 		}
-		r.resolveType(scope, typ.Return)
+		r.resolveType(scope, typ.Return, resolveVars)
 	case *ast.RecordType:
 		var idents = make(map[string]struct{})
 		for _, f := range typ.Fields {
@@ -399,11 +411,11 @@ func (r *resolver) resolveType(scope ast.Scope, typ ast.Type) {
 				return
 			}
 			idents[f.Name.Name] = struct{}{}
-			r.resolveType(scope, f.Type)
+			r.resolveType(scope, f.Type, resolveVars)
 		}
 	case *ast.TupleType:
 		for _, el := range typ.Elems {
-			r.resolveType(scope, el)
+			r.resolveType(scope, el, resolveVars)
 		}
 	}
 }
