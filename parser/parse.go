@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/elm-tangram/tangram/ast"
-	"github.com/elm-tangram/tangram/operator"
 	"github.com/elm-tangram/tangram/package"
 	"github.com/elm-tangram/tangram/report"
 	"github.com/elm-tangram/tangram/scanner"
@@ -48,7 +47,7 @@ func (pm ParseMode) Is(flag ParseMode) bool {
 type Session struct {
 	*report.Reporter
 	*source.CodeMap
-	*operator.Table
+	*opTable
 }
 
 // NewSession creates a new parsing session with a way of diagnosing errors
@@ -56,8 +55,7 @@ type Session struct {
 func NewSession(
 	r *report.Reporter,
 	cm *source.CodeMap,
-	ops *operator.Table,
-) *Session {
+	ops *opTable) *Session {
 	return &Session{r, cm, ops}
 }
 
@@ -91,11 +89,11 @@ func Parse(path string, mode ParseMode) (result *ast.Package, err error) {
 		emitter = report.Errors(!mode.Is(SkipWarnings))
 	}
 
-	var optable *operator.Table
+	var optable *opTable
 	if mode.Is(JustModule) {
-		optable = operator.BuiltinTable()
+		optable = builtinOpTable()
 	} else {
-		optable = operator.NewTable()
+		optable = newOpTable()
 	}
 
 	reporter := report.NewReporter(cm, emitter)
@@ -119,7 +117,7 @@ func Parse(path string, mode ParseMode) (result *ast.Package, err error) {
 type fullParser struct {
 	p        *parser
 	pkg      *pkg.Package
-	optable  *operator.Table
+	optable  *opTable
 	cm       *source.CodeMap
 	g        *pkg.Graph
 	reporter *report.Reporter
@@ -127,7 +125,7 @@ type fullParser struct {
 	modCache map[string]string
 }
 
-func newFullParser(p *parser, pkg *pkg.Package, optable *operator.Table, cm *source.CodeMap, r *report.Reporter) *fullParser {
+func newFullParser(p *parser, pkg *pkg.Package, optable *opTable, cm *source.CodeMap, r *report.Reporter) *fullParser {
 	return &fullParser{
 		p,
 		pkg,
@@ -215,7 +213,7 @@ func (p *fullParser) firstPass(path string, visited map[string]struct{}) {
 		if imp.Exposing != nil {
 			ast.WalkFunc(imp.Exposing, func(n ast.Node) bool {
 				if v, ok := n.(*ast.ExposedVar); ok && v.IsOp() {
-					p.optable.AddToModule(mod, importMod, v.Name)
+					p.optable.addToModule(mod, importMod, v.Name)
 				}
 				return true
 			})
@@ -235,7 +233,7 @@ func (p *fullParser) firstPass(path string, visited map[string]struct{}) {
 	for _, d := range file.Decls {
 		if fixity, ok := d.(*ast.InfixDecl); ok {
 			n, _ := strconv.Atoi(fixity.Precedence.Value)
-			p.optable.Add(fixity.Op.Name, mod, fixity.Assoc, uint(n))
+			p.optable.add(fixity.Op.Name, mod, fixity.Assoc, uint(n))
 		}
 	}
 }
@@ -283,7 +281,7 @@ func ParseFrom(name string, src io.Reader, mode ParseMode) (f *ast.Module, err e
 	sess := NewSession(
 		report.NewReporter(cm, report.Errors(!mode.Is(SkipWarnings))),
 		cm,
-		operator.BuiltinTable(),
+		builtinOpTable(),
 	)
 
 	p := newParser(sess)

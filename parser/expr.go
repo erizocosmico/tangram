@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/elm-tangram/tangram/ast"
-	"github.com/elm-tangram/tangram/operator"
 	"github.com/elm-tangram/tangram/token"
 )
 
@@ -330,7 +329,7 @@ func parseBinaryOp(p *parser, lhs ast.Expr, precedence uint) ast.Expr {
 
 		for p.tok.Type == token.Op &&
 			(opInfo.Precedence > prevOp.Precedence ||
-				(opInfo.Associativity == operator.Right &&
+				(opInfo.Associativity == ast.Right &&
 					opInfo.Precedence == prevOp.Precedence)) {
 			rhs = parseBinaryOp(p, rhs, opInfo.Precedence)
 			opInfo = p.opInfo(p.tok.Value)
@@ -346,7 +345,7 @@ func parseBinaryOp(p *parser, lhs ast.Expr, precedence uint) ast.Expr {
 			Rhs: rhs,
 		}
 
-		if opInfo.Associativity == operator.NonAssoc &&
+		if opInfo.Associativity == ast.NonAssoc &&
 			opInfo.Precedence == prevOp.Precedence {
 			p.errorMessage(p.tok.Offset, fmt.Sprintf(
 				errorMsgMultipleNonAssocOps,

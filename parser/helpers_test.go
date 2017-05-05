@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/elm-tangram/tangram/ast"
-	"github.com/elm-tangram/tangram/operator"
 
 	"github.com/stretchr/testify/require"
 )
@@ -105,7 +104,7 @@ func ExposedUnion(name string, exposed ExposedListAssert) ExposedIdentAssert {
 	}
 }
 
-func InfixDecl(op string, assoc operator.Associativity, prec ExprAssert) DeclAssert {
+func InfixDecl(op string, assoc ast.Associativity, prec ExprAssert) DeclAssert {
 	return func(t *testing.T, decl ast.Decl) {
 		d, ok := decl.(*ast.InfixDecl)
 		require.True(t, ok, "expecting decl to be InfixDecl, is %T", decl)

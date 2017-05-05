@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/elm-tangram/tangram/operator"
 	"github.com/elm-tangram/tangram/token"
 
 	"github.com/stretchr/testify/require"
@@ -118,7 +117,7 @@ var testFile = &Module{
 	Decls: []Decl{
 		// infixl 5 :>
 		mkInfixDecl(
-			operator.Left,
+			Left,
 			mkIdent(":>"),
 			mkBasicLit(Int, "5"),
 		),
@@ -419,7 +418,7 @@ func mkBasicLit(kind BasicLitType, val string) *BasicLit {
 	return &BasicLit{Type: kind, Value: val, Position: token.NoPos}
 }
 
-func mkInfixDecl(assoc operator.Associativity, op *Ident, prec *BasicLit) *InfixDecl {
+func mkInfixDecl(assoc Associativity, op *Ident, prec *BasicLit) *InfixDecl {
 	inc("*ast.InfixDecl")
 	return &InfixDecl{Assoc: assoc, Op: op, Precedence: prec}
 }

@@ -5,7 +5,6 @@ import (
 	"strconv"
 
 	"github.com/elm-tangram/tangram/ast"
-	"github.com/elm-tangram/tangram/operator"
 	"github.com/elm-tangram/tangram/token"
 )
 
@@ -204,11 +203,11 @@ func parseDestructuringAssignment(p *parser) *ast.DestructuringAssignment {
 }
 
 func parseInfixDecl(p *parser) ast.Decl {
-	var assoc operator.Associativity
+	var assoc ast.Associativity
 	if p.is(token.Infixl) {
-		assoc = operator.Left
+		assoc = ast.Left
 	} else if p.is(token.Infixr) {
-		assoc = operator.Right
+		assoc = ast.Right
 	}
 
 	stepOut := p.indentedBlock()
